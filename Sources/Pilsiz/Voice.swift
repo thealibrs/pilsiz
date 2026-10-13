@@ -15,9 +15,13 @@ final class VoiceListener {
     var isListening: Bool { session != nil }
 
     /// Mikrofon ve konuşma tanıma izinleri; ilk kullanımda macOS sorar.
-    static func authorize() async -> Bool {
-        let speech = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0 == .authorized) }
+    /// `nonisolated`: macOS cevabı arka plandaki bir kuyruktan verir; ana aktöre bağlı bir kapanış
+    /// orada çağrılınca Swift 6 çalışma zamanı uygulamayı durdurur.
+    nonisolated static func authorize() async -> Bool {
+        let speech = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            SFSpeechRecognizer.requestAuthorization { @Sendable status in
+                continuation.resume(returning: status == .authorized)
+            }
         }
         let microphone = await AVCaptureDevice.requestAccess(for: .audio)
         return speech && microphone
@@ -83,8 +87,13 @@ final class VoiceListener {
     }
 
     enum VoiceError: LocalizedError {
-        case unavailable
-        var errorDescription: String? { "Türkçe konuşma tanıma şu an kullanılamıyor." }
+        case unavailable, noMicrophone
+        var errorDescription: String? {
+            switch self {
+            case .unavailable: "Türkçe konuşma tanıma şu an kullanılamıyor."
+            case .noMicrophone: "Kullanılabilir bir mikrofon bulunamadı."
+            }
+        }
     }
 }
 
@@ -99,7 +108,10 @@ private final class SpeechSession: @unchecked Sendable {
         request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
         request.addsPunctuation = false
         let input = engine.inputNode
-        input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { [self] buffer, _ in
+        let format = input.outputFormat(forBus: 0)
+        // Mikrofon yoksa biçim boş gelir; bununla tap kurmak AVAudioEngine'i çökertir.
+        guard format.channelCount > 0, format.sampleRate > 0 else { throw VoiceListener.VoiceError.noMicrophone }
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [self] buffer, _ in
             request.append(buffer)
         }
         engine.prepare()

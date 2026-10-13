@@ -42,6 +42,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         #if DEBUG
         if Snapshot.runIfRequested(tv) { return }
         #endif
+        // Oturum açılışında değil de kullanıcı açtıysa (Dock, masaüstü kısayolu, Finder) paneli göster.
+        let launchedAtLogin = NSAppleEventManager.shared().currentAppleEvent?
+            .paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.target = self
@@ -54,6 +57,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         popover.contentViewController = hosting
         popover.behavior = .transient
         popover.appearance = NSAppearance(named: .darkAqua)
+
+        if !launchedAtLogin {
+            Task { @MainActor in self.showPopover() }
+        }
 
         UNUserNotificationCenter.current().delegate = self
         ReminderStore.registerCategory()
@@ -73,6 +80,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     // MARK: - Panel
+
+    /// Uygulama zaten çalışırken Dock'taki ya da masaüstündeki ikona tıklanınca paneli aç.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showPopover()
+        return false
+    }
 
     @objc private func togglePopover() {
         if popover.isShown {

@@ -28,6 +28,8 @@ codesign --verify --strict "$APP"
 pkill -x Pilsiz || pkill -x TVKumanda || true
 rm -rf "/Applications/Pilsiz.app" "/Applications/TV Kumanda.app"
 ditto "$APP" "/Applications/Pilsiz.app"
+# Finder ve Dock'un yeni ikonu hemen göstermesi için uygulamayı Launch Services'e yeniden kaydet.
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/Pilsiz.app"
 rm -rf "$STAGE"
 open "/Applications/Pilsiz.app"
 echo "Kuruldu ve başlatıldı: /Applications/Pilsiz.app"

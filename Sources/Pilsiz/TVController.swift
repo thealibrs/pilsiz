@@ -105,6 +105,16 @@ final class TVController {
         Task { await startPolling() }
     }
 
+    #if DEBUG
+    /// Anlık görüntü modunda TV kapalıyken de "bağlı" görünümü çizmek için; durum yoklaması bunu geri almaz.
+    private var debugPinnedOnline = false
+    func debugForceOnline() {
+        debugPinnedOnline = true
+        status = .online
+        lastError = nil
+    }
+    #endif
+
     // MARK: - Komutlar
 
     func press(_ key: RemoteKey) {
@@ -355,6 +365,9 @@ final class TVController {
     // MARK: - Durum ve keşif
 
     func refresh() async {
+        #if DEBUG
+        if debugPinnedOnline { return }
+        #endif
         guard status != .waking, status != .searching else { return }
         if host.isEmpty {
             // Otomatik tarama yalnızca bir kez; sonrası için Ayarlar › “Ağda ara”.

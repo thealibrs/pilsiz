@@ -138,12 +138,29 @@ enum Snapshot {
             try? await Task.sleep(for: .seconds(1))
             for tab in Tab.allCases {
                 UserDefaults.standard.set(tab.rawValue, forKey: "tab")
-                let renderer = ImageRenderer(content: RootView().environment(tv).environment(PanelState()))
-                renderer.scale = 2
-                if let tiff = renderer.nsImage?.tiffRepresentation,
-                   let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
-                    try? png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(tab.rawValue).png"))
+                // TV kapalıyken de dolu bir panel çizilsin; "TV'de göster" sekmesi panoyu açık hâliyle göstersin.
+                tv.debugForceOnline()
+                if tab == .share { tv.dashboard.debugMarkOpen(tv: tv) }
+                // ImageRenderer yazı alanlarını ve AppKit görünümlerini çizemediği için gerçek bir pencere kullanılır;
+                // pencere masaüstünün arkasında durur, ekranda görünmez.
+                let host = NSHostingView(rootView: RootView().environment(tv).environment(PanelState()))
+                let window = NSWindow(contentRect: NSRect(origin: .zero, size: host.fittingSize), styleMask: .borderless,
+                                      backing: .buffered, defer: false)
+                window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) - 1)
+                window.appearance = NSAppearance(named: .darkAqua)
+                window.contentView = host
+                window.orderFrontRegardless()
+                try? await Task.sleep(for: .milliseconds(700))
+                tv.debugForceOnline()
+                window.setContentSize(host.fittingSize)
+                host.layoutSubtreeIfNeeded()
+                try? await Task.sleep(for: .milliseconds(300))
+                if let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                    host.cacheDisplay(in: host.bounds, to: bitmap)
+                    try? bitmap.representation(using: .png, properties: [:])?
+                        .write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(tab.rawValue).png"))
                 }
+                window.orderOut(nil)
             }
             exit(0)
         }

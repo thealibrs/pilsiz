@@ -58,6 +58,14 @@ final class Dashboard {
         status == .open && share.server.currentMode == .dashboard
     }
 
+    #if DEBUG
+    /// Anlık görüntü modunda pano kartını açık hâliyle çizmek için; TV'ye bir şey gönderilmez.
+    func debugMarkOpen(tv: TVController) {
+        status = .open
+        tv.share.server.setMode(.dashboard)
+    }
+    #endif
+
     // MARK: - Açma, kapama
 
     func open(tv: TVController) {

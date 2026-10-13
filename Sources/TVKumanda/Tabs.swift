@@ -73,21 +73,10 @@ struct NowTab: View {
     private func screen(at date: Date) -> some View {
         let programme = schedule(at: date)
         return VStack(spacing: 0) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(LinearGradient(colors: [Color(white: 0.13), Color(white: 0.03)], startPoint: .top, endPoint: .bottom))
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.white.opacity(0.18), lineWidth: 2))
+            RealisticTV(isOn: tv.isOnline) {
                 screenContent(programme.now)
             }
-            .frame(height: 118)
-            .padding(.horizontal, 22)
-            HStack {
-                Capsule().fill(Color.white.opacity(0.18)).frame(width: 26, height: 3).rotationEffect(.degrees(-20))
-                Spacer()
-                Capsule().fill(Color.white.opacity(0.18)).frame(width: 26, height: 3).rotationEffect(.degrees(20))
-            }
-            .padding(.horizontal, 40)
-            .padding(.top, 2)
+            .padding(.horizontal, 6)
 
             HStack {
                 SectionLabel(text: "● Şimdi ekranda", color: Theme.accent)
@@ -109,22 +98,23 @@ struct NowTab: View {
 
     @ViewBuilder private func screenContent(_ programme: Programme?) -> some View {
         if !tv.isOnline {
+            // Kapalı panel gerçekte simsiyahtır; yalnızca soluk bir ipucu.
             VStack(spacing: 6) {
-                Image(systemName: "power").font(.system(size: 22))
-                Text("TV kapalı").font(.system(size: 12, weight: .medium))
+                Image(systemName: "power").font(.system(size: 18))
+                Text("TV kapalı").font(.system(size: 11, weight: .medium))
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.white.opacity(0.22))
         } else if let app = tv.runningApp {
             VStack(spacing: 8) {
-                AppBadge(app: app, size: 34)
-                Text(app.name).font(.system(size: 14, weight: .semibold))
+                AppBadge(app: app, size: 46)
+                Text(app.name).font(.system(size: 16, weight: .semibold))
             }
         } else if let channel = tv.currentChannel {
             VStack(spacing: 8) {
-                ChannelLogo(name: channel.name, height: programme == nil ? 46 : 38)
-                    .frame(maxWidth: 170)
+                ChannelLogo(name: channel.name, height: programme == nil ? 58 : 48)
+                    .frame(maxWidth: 200)
                 Text(programme?.title ?? "\(channel.number) · \(channel.name)")
-                    .font(.system(size: programme == nil ? 11 : 13, weight: .semibold))
+                    .font(.system(size: programme == nil ? 12 : 15, weight: .semibold))
                     .foregroundStyle(programme == nil ? .secondary : .primary)
                     .lineLimit(1)
                     .padding(.horizontal, 14)

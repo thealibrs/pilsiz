@@ -1,26 +1,34 @@
 import AppKit
 import SwiftUI
 
-/// Kanal logoları uygulama paketindeki Resources/Logos klasöründen, kanal adından türetilen anahtarla yüklenir:
-/// "TRT 1 HD" → trt1.png, "HABERTÜRK HD" → haberturk.png
+/// Uygulama paketinin Resources klasöründeki PNG'leri önbellekli yükler.
 @MainActor
-enum LogoCatalog {
+enum BundledImage {
     private static var cache: [String: NSImage?] = [:]
 
-    static func image(for name: String) -> NSImage? {
-        let key = NameKey.key(name)
-        if let cached = cache[key] { return cached }
-        var url = Bundle.main.url(forResource: key, withExtension: "png", subdirectory: "Logos")
+    static func named(_ name: String, in subdirectory: String? = nil) -> NSImage? {
+        let path = [subdirectory, name].compactMap { $0 }.joined(separator: "/")
+        if let cached = cache[path] { return cached }
+        var url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: subdirectory)
         #if DEBUG
         // Paketlenmemiş debug derlemesinde proje klasöründen oku.
         if url == nil {
-            let local = URL(fileURLWithPath: "Resources/Logos/\(key).png")
+            let local = URL(fileURLWithPath: "Resources/\(path).png")
             if FileManager.default.fileExists(atPath: local.path) { url = local }
         }
         #endif
         let image = url.flatMap(NSImage.init(contentsOf:))
-        cache[key] = image
+        cache[path] = image
         return image
+    }
+}
+
+/// Kanal logoları Resources/Logos klasöründen, kanal adından türetilen anahtarla yüklenir:
+/// "TRT 1 HD" → trt1.png, "HABERTÜRK HD" → haberturk.png
+@MainActor
+enum LogoCatalog {
+    static func image(for name: String) -> NSImage? {
+        BundledImage.named(NameKey.key(name), in: "Logos")
     }
 }
 

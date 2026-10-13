@@ -9,7 +9,11 @@ enum Snapshot {
         guard let dir = ProcessInfo.processInfo.environment["TVKUMANDA_SNAPSHOT"] else { return }
         RootView.scrolls = false
         Task {
-            try? await Task.sleep(for: .seconds(8))
+            // TV durumu ve yayın akışı gelsin diye bekle (en fazla 20 sn).
+            for _ in 0..<40 where tv.epg.updatedAt == nil || !tv.isOnline {
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            try? await Task.sleep(for: .seconds(1))
             for tab in Tab.allCases {
                 UserDefaults.standard.set(tab.rawValue, forKey: "tab")
                 let renderer = ImageRenderer(content: RootView().environment(tv))

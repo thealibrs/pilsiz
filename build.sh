@@ -13,6 +13,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$(swift build -c release --show-bin-path)/TVKumanda" "$APP/Contents/MacOS/"
 cp Resources/Info.plist "$APP/Contents/"
 cp -R Resources/Logos "$APP/Contents/Resources/"
+cp Resources/tv.png "$APP/Contents/Resources/"
 xattr -cr "$APP"
 
 # Sabit bir sertifikayla imzalamak, macOS'un Yerel Ağ iznini her derlemede sıfırlamasını önler.

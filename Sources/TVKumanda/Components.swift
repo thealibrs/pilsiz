@@ -117,6 +117,52 @@ struct RemoteButton: View {
     }
 }
 
+/// Gerçekçi TV görseli (Resources/tv.png); içerik görseldeki ekran alanına yerleştirilir.
+struct RealisticTV<Content: View>: View {
+    var isOn: Bool
+    @ViewBuilder var content: () -> Content
+
+    /// tv.png içindeki ekran alanı, görsel boyutuna oranla.
+    private static var screen: CGRect { CGRect(x: 0.0061, y: 0.0099, width: 0.9867, height: 0.867) }
+
+    var body: some View {
+        if let image = BundledImage.named("tv") {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .overlay {
+                    GeometryReader { proxy in
+                        let rect = CGRect(
+                            x: proxy.size.width * Self.screen.minX, y: proxy.size.height * Self.screen.minY,
+                            width: proxy.size.width * Self.screen.width, height: proxy.size.height * Self.screen.height
+                        )
+                        display(size: rect.size).position(x: rect.midX, y: rect.midY)
+                    }
+                }
+        } else {
+            display(size: CGSize(width: 260, height: 146))
+        }
+    }
+
+    private func display(size: CGSize) -> some View {
+        ZStack {
+            if isOn {
+                // Açık panelin hafif arka ışığı.
+                RadialGradient(colors: [Color(white: 0.17), Color(white: 0.03)], center: .center,
+                               startRadius: 0, endRadius: size.width * 0.62)
+            }
+            content()
+            // Camdaki yansıma içeriğin üstünde de görünsün.
+            LinearGradient(colors: [Color.white.opacity(0.07), .clear], startPoint: .topLeading, endPoint: .center)
+                .allowsHitTesting(false)
+        }
+        .frame(width: size.width, height: size.height)
+        .clipShape(RoundedRectangle(cornerRadius: 1.5, style: .continuous))
+        .animation(.easeInOut(duration: 0.35), value: isOn)
+    }
+}
+
 /// Uygulama logosu yerine kullanılan renkli rozet.
 struct AppBadge: View {
     let app: TVApp

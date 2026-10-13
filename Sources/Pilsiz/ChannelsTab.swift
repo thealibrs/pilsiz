@@ -86,7 +86,8 @@ struct ChannelsTab: View {
 
     private var filtered: [Channel] {
         let query = search.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return tv.channels.channels }
+        // Anlık görüntü modunda yüzlerce satır tek resme sığmaz.
+        guard !query.isEmpty else { return RootView.scrolls ? tv.channels.channels : Array(tv.channels.channels.prefix(15)) }
         return tv.channels.channels.filter {
             $0.name.localizedStandardContains(query) || String($0.number).hasPrefix(query)
         }
@@ -113,7 +114,15 @@ struct ChannelsTab: View {
                 }
             }
             Spacer()
-            if isCurrent, tv.isOnline { SectionLabel(text: "Ekranda", color: Theme.accent) }
+            if isCurrent, tv.isOnline {
+                // Dar satırda yazı yerine simge: kanal adına yer kalsın.
+                Image(systemName: "dot.radiowaves.left.and.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .symbolEffect(.variableColor.iterative)
+                    .help("Şu an ekranda")
+                    .accessibilityLabel("Şu an ekranda")
+            }
             if programme != nil {
                 Button {
                     withAnimation(.snappy(duration: 0.2)) {

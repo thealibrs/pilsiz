@@ -29,11 +29,12 @@ struct HTTPResponse: Sendable {
 enum RawHTTP {
     static func request(
         host: String, port: UInt16, method: String, path: String,
-        body: String? = nil, origin: String? = nil, timeout: TimeInterval = 3
+        body: String? = nil, origin: String? = nil, headers: [String: String] = [:], timeout: TimeInterval = 3
     ) async throws -> HTTPResponse {
         let bodyData = Data((body ?? "").utf8)
         var head = "\(method) \(path) HTTP/1.1\r\nHost: \(host):\(port)\r\nConnection: close\r\n"
         if let origin { head += "Origin: \(origin)\r\n" }
+        for (name, value) in headers { head += "\(name): \(value)\r\n" }
         if body != nil { head += "Content-Type: application/xml\r\n" }
         if body != nil || method == "POST" { head += "Content-Length: \(bodyData.count)\r\n" }
         head += "\r\n"
@@ -52,7 +53,7 @@ enum RawHTTP {
 /// Tüm callback'ler tek bir seri kuyrukta çalışır; bu yüzden durum güvenle değiştirilebilir.
 private final class HTTPExchange: @unchecked Sendable {
     private let conn: NWConnection
-    private let queue = DispatchQueue(label: "tvkumanda.http")
+    private let queue = DispatchQueue(label: "pilsiz.http")
     private var buffer = Data()
     private var continuation: CheckedContinuation<HTTPResponse, Error>?
 
@@ -108,6 +109,96 @@ private final class HTTPExchange: @unchecked Sendable {
 /// Vestel SmartCenter (DIAL) protokolü.
 enum SmartCenter {
     static let port: UInt16 = 56789
+
+    /// SmartCenter uygulamasının kendini tanıttığı başlık; komutlar bununla gönderilir.
+    private static let appHeader = ["application_name": "tv smart centre"]
+
+    private static func post(_ body: String, to host: String) async throws {
+        let response = try await RawHTTP.request(
+            host: host, port: port, method: "POST", path: "/apps/SmartCenter", body: body, headers: appHeader
+        )
+        guard (200..<300).contains(response.status) else { throw TVError.http(response.status) }
+    }
+
+    /// Metni TV'deki etkin yazı alanına harf harf yazar.
+    static func type(_ text: String, to host: String) async throws {
+        for scalar in text.unicodeScalars {
+            try await post("<?xml version='1.0' ?><keyboard><key value='\(scalar.value)'/></keyboard>", to: host)
+        }
+    }
+
+    /// İmleci göreli olarak taşır (telefon uygulaması gibi ~60 Hz küçük adımlar).
+    static func moveCursor(dx: Double, dy: Double, on host: String) async throws {
+        let body = String(format: "<?xml version='1.0'?><mouseevent><event_data dx='%.1f' dy='%.1f' button='0'/></mouseevent>", dx, dy)
+        try await post(body, to: host)
+    }
+
+    struct Service: Sendable {
+        let number: Int
+        let name: String
+        let type: Int
+
+        /// 2 = radyo; geri kalanlar (1, 22, 25 yayın, 131 internet kanalı) izlenebilir.
+        var isTV: Bool { type != 2 }
+    }
+
+    /// TV'nin kanal listesini ister. Yanıt HTTP'den değil, 7681 portundaki WebSocket'ten gelir.
+    static func channelList(from host: String) async throws -> [Service] {
+        guard let url = URL(string: "ws://\(host):7681/") else { throw TVError.badResponse }
+        let socket = URLSession.shared.webSocketTask(with: url)
+        socket.maximumMessageSize = 4 * 1024 * 1024
+        socket.resume()
+        defer { socket.cancel(with: .goingAway, reason: nil) }
+
+        // TV listeyi yalnızca o an bağlı istemcilere yollar: komuttan önce bağlantı açılmış olmalı.
+        // Ping'in yanıtı bağlantının kurulduğunu gösterir.
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            socket.sendPing { error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+            }
+        }
+        try await post("<?xml version='1.0'?><command>activechannellist</command>", to: host)
+        return try await withThrowingTaskGroup(of: [Service].self) { group in
+            group.addTask {
+                while true {
+                    let text: String
+                    switch try await socket.receive() {
+                    case .string(let string): text = string
+                    case .data(let data): text = String(decoding: data, as: UTF8.self)
+                    @unknown default: continue
+                    }
+                    if text.hasPrefix("<active_list") { return parseServices(text) }
+                }
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(10))
+                throw TVError.timeout
+            }
+            // receive() iptali dinlemediği için grup kapanmadan önce soket de kapatılır.
+            defer {
+                group.cancelAll()
+                socket.cancel(with: .goingAway, reason: nil)
+            }
+            return try await group.next() ?? []
+        }
+    }
+
+    /// TV adlarda "&" karakterini kaçırmadan gönderdiği için XML ayrıştırıcı yerine esnek okuma.
+    static func parseServices(_ text: String) -> [Service] {
+        let attribute = /(\w+)='([^']*)'/
+        return text.matches(of: /<service ([^>]*)\/>/).compactMap { match in
+            var values: [String: String] = [:]
+            for pair in String(match.output.1).matches(of: attribute) {
+                values[String(pair.output.1)] = String(pair.output.2)
+            }
+            guard let number = values["rsn"].flatMap(Int.init), let name = values["name"] else { return nil }
+            let cleaned = name
+                .replacingOccurrences(of: "&amp;", with: "&")
+                .replacingOccurrences(of: "&apos;", with: "'")
+                .trimmingCharacters(in: CharacterSet(charactersIn: ". ").union(.whitespaces))
+            return Service(number: number, name: cleaned, type: values["type"].flatMap(Int.init) ?? 0)
+        }
+    }
 
     static func send(_ code: Int, to host: String) async throws {
         // Not: TV, kod değerinin tırnaksız gönderilmesini bekliyor.

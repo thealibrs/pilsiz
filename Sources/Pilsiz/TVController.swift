@@ -44,6 +44,16 @@ final class TVController {
     private(set) var runningApp: TVApp?
     private(set) var currentInput: String?
 
+    enum ChannelSync: Equatable {
+        case idle, syncing
+        case done(added: Int, total: Int)
+        case failed(String)
+    }
+    private(set) var channelSync: ChannelSync = .idle
+    private var cursorDX = 0.0
+    private var cursorDY = 0.0
+    private var cursorTask: Task<Void, Never>?
+
     /// TV ses seviyesini ağdan bildirmediği için seviye burada takip edilir (0–100).
     private(set) var volume: Int { didSet { defaults.set(volume, forKey: "volume") } }
     private(set) var isMuted = false
@@ -172,6 +182,45 @@ final class TVController {
             if isOnline {
                 try? await Task.sleep(for: .seconds(4))
                 switchTo(channel)
+            }
+        }
+    }
+
+    // MARK: - Kanal listesi, klavye, imleç
+
+    /// Kanal listesini TV'den çeker ve mevcut listeyle birleştirir (radyolar hariç).
+    func syncChannels() async {
+        guard !host.isEmpty, channelSync != .syncing else { return }
+        channelSync = .syncing
+        do {
+            let services = try await SmartCenter.channelList(from: host).filter(\.isTV)
+            let added = channels.merge(services)
+            defaults.set(Date(), forKey: "channelsSyncedAt")
+            channelSync = .done(added: added, total: services.count)
+        } catch {
+            channelSync = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Metni TV'deki etkin yazı alanına yazar.
+    func type(_ text: String) {
+        enqueue { host in try await SmartCenter.type(text, to: host) }
+    }
+
+    /// İmleci göreli taşır; hızlı hareketler birikip ~60 Hz'de tek istekte gönderilir.
+    func moveCursor(dx: Double, dy: Double) {
+        cursorDX += dx
+        cursorDY += dy
+        guard cursorTask == nil, !host.isEmpty else { return }
+        let host = host
+        cursorTask = Task {
+            defer { cursorTask = nil }
+            while abs(cursorDX) >= 0.5 || abs(cursorDY) >= 0.5 {
+                let (dx, dy) = (cursorDX, cursorDY)
+                cursorDX = 0
+                cursorDY = 0
+                try? await SmartCenter.moveCursor(dx: dx, dy: dy, on: host)
+                try? await Task.sleep(for: .milliseconds(16))
             }
         }
     }
@@ -319,6 +368,11 @@ final class TVController {
         status = .online
         lastError = nil
         if !wasOnline || mac.isEmpty { learnMAC() }
+        // Kanal listesi günde en fazla iki kez TV'den kendiliğinden tazelenir.
+        let lastSync = defaults.object(forKey: "channelsSyncedAt") as? Date ?? .distantPast
+        if !wasOnline, Date().timeIntervalSince(lastSync) > 12 * 3600 {
+            Task { await syncChannels() }
+        }
     }
 
     private func learnMAC() {

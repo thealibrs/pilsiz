@@ -1,6 +1,8 @@
 <div align="center">
 
-# 📺 TV Kumanda
+<img src="docs/icon.png" alt="Pilsiz simgesi" width="128">
+
+# Pilsiz
 
 **Vestel tabanlı akıllı TV'ni Mac'in menü çubuğundan yönet.**
 
@@ -11,7 +13,7 @@ Kumanda, kanal listesi, uygulamalar, ses ve izleme istatistikleri; hepsi menü �
 ![SwiftUI](https://img.shields.io/badge/SwiftUI-AppKit-0A84FF)
 ![Bağımlılık yok](https://img.shields.io/badge/ba%C4%9F%C4%B1ml%C4%B1l%C4%B1k-yok-2ea44f)
 
-<img src="docs/screenshots/hero.png" alt="TV Kumanda panelleri: Ekranda, Kumanda, Kanallar, Aktivite" width="100%">
+<img src="docs/screenshots/hero.png" alt="Pilsiz panelleri: Ekranda, Kumanda, Kanallar, Aktivite" width="100%">
 
 </div>
 
@@ -19,7 +21,7 @@ Kumanda, kanal listesi, uygulamalar, ses ve izleme istatistikleri; hepsi menü �
 
 ## Neden?
 
-Fiziksel kumanda kırılınca TV'yi telefondaki *TV Smart Centre* uygulamasıyla yönetmek zorunda kalmıştım. Bu proje, aynı kontrolü Mac'e taşıyor. Hiçbir buluta bağlanmıyor; Mac ile TV, yerel ağ üzerinden doğrudan konuşuyor.
+Fiziksel kumanda kırılınca TV'yi telefondaki *TV Smart Centre* uygulamasıyla yönetmek zorunda kalmıştım. Bu proje, aynı kontrolü Mac'e taşıyor. Hiçbir buluta bağlanmıyor; Mac ile TV, yerel ağ üzerinden doğrudan konuşuyor. Adı da buradan: pili hiç bitmeyen bir kumanda.
 
 Test edilen cihaz: **Daewoo 43DE54F** (anakart: Vestel **17MB181TC**). Vestel'in SmartCenter altyapısını kullanan diğer TV'lerde de (Vestel, Toshiba, Hitachi, Telefunken, JVC, Finlux…) çalışması beklenir.
 
@@ -37,6 +39,9 @@ Test edilen cihaz: **Daewoo 43DE54F** (anakart: Vestel **17MB181TC**). Vestel'in
 Ayrıca:
 
 - 🔔 **Program hatırlatıcı:** Kanallar listesindeki takvim düğmesinden ya da "Sırada" satırındaki zilden bir programa hatırlatıcı kur. Başlamadan 5 dk önce gelen bildirimdeki **Kanala geç** düğmesi, TV kapalıysa önce açar, sonra o kanala geçer.
+- 📡 **Kanal listesi TV'den:** Kanallar sekmesindeki ⟳ düğmesiyle (ve günde bir kendiliğinden) TV'deki tüm kanallar (radyolar hariç) listeye eklenir; düzenlediğin adlar ve favoriler korunur.
+- ⌨️ **Klavye:** Kumanda sekmesinden yazdığın metin TV'deki etkin yazı alanına (YouTube, Netflix araması) gider.
+- 🖱 **Touchpad:** Fareyi Kumanda sekmesindeki alanın üzerinde gezdirdikçe TV imleci hareket eder; tıklama OK'dir.
 - 🔎 **Hızlı arama (⌘K):** Kanal adı, numarası ya da **yayındaki program adıyla** ara ("kuruluş" yazınca dizinin olduğu kanal çıkar); ↑↓ ile seç, ↩ ile geç.
 - 🧷 **Menü çubuğunda kanal:** Simgenin yanında kanal adı ya da "kanal · program" yazar (Ayarlar'dan seçilir).
 - ⌨️ **Her yerde çalışan kısayollar** (panel kapalıyken de; Ayarlar'dan kapatılabilir):
@@ -92,9 +97,9 @@ cd tv-kumanda
 `build.sh` şunları yapar:
 
 1. `swift build -c release` ile derler.
-2. `.app` paketini geçici bir klasörde oluşturur, logoları ekler.
+2. `.app` paketini geçici bir klasörde oluşturur, logoları ekler ve uygulama simgesini `actool` ile derler.
 3. Anahtar zincirindeki ilk **Apple Development** sertifikasıyla imzalar (yoksa ad-hoc imzalar).
-4. `/Applications/TV Kumanda.app` olarak kurar ve başlatır.
+4. `/Applications/Pilsiz.app` olarak kurar ve başlatır.
 
 > **Neden sabit sertifika?** macOS, *Yerel Ağ* iznini uygulamanın imzasına bağlar. Ad-hoc imza her derlemede değiştiği için izin her seferinde sıfırlanır. Farklı bir sertifika kullanmak için: `SIGN_IDENTITY="..." ./build.sh`
 
@@ -110,7 +115,7 @@ Vestel TV'ler, SmartCenter mobil uygulaması için **56789** portunda bir DIAL s
 
 ```
 ┌──────────────────┐        HTTP (yerel ağ)        ┌────────────────────────┐
-│  TV Kumanda      │  POST /apps/SmartCenter  ───▶ │  Vestel TV  :56789     │
+│  Pilsiz          │  POST /apps/SmartCenter  ───▶ │  Vestel TV  :56789     │
 │  (menü çubuğu)   │  POST /apps/Netflix      ───▶ │  DIAL + sanal kumanda  │
 │                  │  GET  /apps/<uygulama>   ───▶ │                        │
 │                  │  UDP :9  Wake-on-LAN     ───▶ │  (bekleme modunda)     │
@@ -149,6 +154,27 @@ Connection: close
 
 </details>
 
+### Komutlar, klavye ve imleç
+
+Aşağıdakiler, telefondaki *TV Smart Centre* uygulamasının trafiği mitmproxy ile kaydedilip [REA](https://github.com/morluto/rea) ile çözümlenerek bulundu. Hepsi aynı uç noktaya gider; komutlarda telefon uygulaması gibi `application_name: tv smart centre` başlığı gönderilir.
+
+| Amaç | İstek gövdesi |
+|---|---|
+| Kanal listesi | `<?xml version='1.0'?><command>activechannellist</command>` |
+| TV özellikleri | `<?xml version='1.0'?><command>specialportalapps</command>` |
+| Metin (harf başına) | `<?xml version='1.0' ?><keyboard><key value='116'/></keyboard>` (ASCII/Unicode kodu) |
+| İmleç (~60 Hz) | `<?xml version='1.0'?><mouseevent><event_data dx='8.0' dy='-29.3' button='0'/></mouseevent>` |
+
+Komutların HTTP yanıtı boştur; **sonuç, TV'nin 7681 portundaki WebSocket'ine yayınlanır**. Kanal listesi şöyle gelir (TV adlarda `&` karakterini kaçırmadığı için esnek ayrıştırılır):
+
+```xml
+<active_list network='None' count='614' total_size='67979'>
+  <service rsn='1' name='TRT 1 HD' handle='715' onid='0' tsid='7' sid='10601' type='25' is_encrypted='0'/>
+  …
+```
+
+`rsn` TV'deki kanal numarası, `type` 25/22/1 yayın, 2 radyo, 131 internet kanalıdır. TV listeyi yalnızca o an bağlı istemcilere gönderdiği için WebSocket, komuttan **önce** açılmalıdır.
+
 ### Uygulamalar (DIAL)
 
 | Uygulama | Uç nokta | Not |
@@ -161,7 +187,7 @@ Açık olan uygulama, `GET /apps/<ad>` yanıtındaki `<state>running</state>` il
 
 ### Yayın akışı
 
-Programlar, her gün otomatik güncellenen açık kaynak [iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey) XMLTV akışından gelir (Türksat'taki ~180 kanal, 7 gün). Akış 6 saatte bir yenilenir ve `~/Library/Application Support/TVKumanda/epg.xml` altında önbelleğe alınır. Kanallar adlarıyla eşleştirilir (`"STAR TV HD"` ↔ `"Star"`, `"HABERTÜRK HD"` ↔ `"HABERTÜRK TV"`).
+Programlar, her gün otomatik güncellenen açık kaynak [iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey) XMLTV akışından gelir (Türksat'taki ~180 kanal, 7 gün). Akış 6 saatte bir yenilenir ve `~/Library/Application Support/Pilsiz/epg.xml` altında önbelleğe alınır. Kanallar adlarıyla eşleştirilir (`"STAR TV HD"` ↔ `"Star"`, `"HABERTÜRK HD"` ↔ `"HABERTÜRK TV"`).
 
 ### Kanal geçişi
 
@@ -170,8 +196,8 @@ TV kanal adlarını ağ üzerinden vermez. Bu yüzden kanal listesi Mac'te tutul
 ## Proje yapısı
 
 ```
-Sources/TVKumanda/
-├── TVKumandaApp.swift   # Menü çubuğu simgesi + oklu NSPopover
+Sources/Pilsiz/
+├── PilsizApp.swift      # Menü çubuğu simgesi + oklu NSPopover
 ├── TVController.swift   # Durum, komut kuyruğu, ses takibi, keşif, Wake-on-LAN
 ├── Network.swift        # Minimal HTTP istemcisi (Network.framework), SmartCenter/DIAL, WoL
 ├── Stores.swift         # Kanal listesi ve aktivite verisi (UserDefaults)
@@ -196,21 +222,20 @@ Resources/
 Debug derlemesinde README görüntülerini yeniden üretmek için:
 
 ```bash
-swift build && TVKUMANDA_SNAPSHOT=/tmp/snap .build/debug/TVKumanda
+swift build && PILSIZ_SNAPSHOT=/tmp/snap .build/debug/Pilsiz
 ```
 
 ## Bilinen sınırlamalar ve yol haritası
 
-SmartCenter protokolünün yalnızca tuş gönderme ve DIAL kısmı açık kaynaklarda belgelenmiş. Aşağıdakiler henüz yok:
-
-- [ ] Ses seviyesini TV'den **okumak** (şu an uygulama tarafında takip ediliyor)
-- [ ] Kanal listesini TV'den **otomatik çekmek**
-- [ ] Klavye ile metin girişi, touchpad/imleç
+- [x] Kanal listesini TV'den **otomatik çekmek**
+- [x] Klavye ile metin girişi, touchpad/imleç
+- [ ] Ses seviyesini TV'den **okumak**: telefon uygulaması da yalnızca +/− gönderiyor; protokolde okuma bulunmadı
+- [ ] Şu anki kanalı TV'den okumak (telefondan değiştirilen kanalı bilmek)
 - [ ] Parlaklık, kontrast gibi görüntü ayarları
 - [ ] Mac ekranını TV'ye yansıtma
 - [ ] Girişleri doğrudan seçmek (şu an kaynak menüsü açılıp sıra numarası gönderiliyor)
 
-Sıradaki adım: Vestel SmartCenter uygulamasını [REA](https://github.com/morluto/rea) ile tersine mühendislikle inceleyip bu komutları bulmak.
+Kalanlar için sıradaki adım: SmartCenter'ın Android APK'sını REA ile statik olarak incelemek.
 
 ## Teşekkürler ve kaynaklar
 

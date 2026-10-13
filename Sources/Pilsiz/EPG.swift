@@ -55,7 +55,7 @@ final class EPGStore {
 
     private let cacheURL: URL = {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("TVKumanda", isDirectory: true)
+            .appendingPathComponent("Pilsiz", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("epg.xml")
     }()

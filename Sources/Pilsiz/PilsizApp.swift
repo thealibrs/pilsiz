@@ -4,7 +4,7 @@ import SwiftUI
 import UserNotifications
 
 @main
-struct TVKumandaApp: App {
+struct PilsizApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -138,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     private func updateStatusItem() {
         guard let button = statusItem?.button else { return }
-        let image = NSImage(systemSymbolName: tv.isOnline ? "tv.fill" : "tv", accessibilityDescription: "TV Kumanda")
+        let image = NSImage(systemSymbolName: tv.isOnline ? "tv.fill" : "tv", accessibilityDescription: "Pilsiz")
         image?.isTemplate = true
         button.image = image
 

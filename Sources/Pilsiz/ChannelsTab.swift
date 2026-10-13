@@ -26,7 +26,13 @@ struct ChannelsTab: View {
                     editing = nil
                     scanning = true
                 }
+                iconButton("arrow.triangle.2.circlepath", "Kanal listesini TV'den eşitle") {
+                    Task { await tv.syncChannels() }
+                }
+                .disabled(tv.channelSync == .syncing)
             }
+
+            syncStatus
 
             if scanning {
                 ScanWizard { scanning = false }
@@ -40,7 +46,8 @@ struct ChannelsTab: View {
                 emptyState
             } else {
                 TimelineView(.everyMinute) { context in
-                    VStack(spacing: 4) {
+                    // 400'ü aşkın kanal olabildiği için satırlar görünür oldukça oluşturulur.
+                    LazyVStack(spacing: 4) {
                         ForEach(filtered) { channel in
                             row(channel, at: context.date)
                             if expandedSchedule == channel.id {
@@ -51,6 +58,29 @@ struct ChannelsTab: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder private var syncStatus: some View {
+        switch tv.channelSync {
+        case .idle:
+            EmptyView()
+        case .syncing:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Kanal listesi TV'den alınıyor…").font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        case .done(let added, let total):
+            Text(added == 0 ? "TV'deki \(total) kanalın hepsi listede." : "TV'den \(added) yeni kanal eklendi (TV'de toplam \(total)).")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .failed(let message):
+            Text("Kanal listesi alınamadı: \(message)")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.accent)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -131,14 +161,14 @@ struct ChannelsTab: View {
     private var emptyState: some View {
         Card("Kanal listen boş", icon: "list.number") {
             VStack(alignment: .leading, spacing: 10) {
-                Text("TV kanal adlarını ağ üzerinden vermiyor. Listeyi bir kez oluşturman yeterli; sonra tek tıkla kanala geçersin.")
-                    .font(.system(size: 11.5)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("En hızlısı sihirbaz: TV'yi sırayla 1, 2, 3… kanallara götürür, sen de ekranda gördüğün adı yazarsın.")
+                Text("TV açıkken kanal listesini tek tıkla TV'nin kendisinden alabilirsin.")
                     .font(.system(size: 11.5)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack {
-                    Button("Sihirbazı başlat") { scanning = true }.buttonStyle(.borderedProminent)
+                    Button("TV'den al") { Task { await tv.syncChannels() } }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!tv.isOnline || tv.channelSync == .syncing)
+                    Button("Sihirbaz") { scanning = true }
                     Button("Elle ekle") { editing = Channel(number: 1, name: "") }
                 }
             }
@@ -282,7 +312,7 @@ private struct ScheduleList: View {
                 .padding(.vertical, 3)
             }
             if tv.reminders.permissionDenied {
-                Text("Bildirim izni yok: Sistem Ayarları › Bildirimler › TV Kumanda")
+                Text("Bildirim izni yok: Sistem Ayarları › Bildirimler › Pilsiz")
                     .font(.system(size: 10.5))
                     .foregroundStyle(Theme.accent)
             }

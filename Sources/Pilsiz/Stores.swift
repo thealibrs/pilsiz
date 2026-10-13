@@ -80,6 +80,18 @@ final class ChannelStore {
         defaults.set(pending.map(\.version).max(), forKey: "channelSeedVersion")
     }
 
+    /// TV'den gelen listeyle birleştirir: yalnızca listede olmayan numaralar eklenir;
+    /// mevcut kanalların adları (kullanıcı düzenlemiş olabilir) ve favoriler korunur.
+    @discardableResult
+    func merge(_ services: [SmartCenter.Service]) -> Int {
+        let known = Set(channels.map(\.number))
+        let added = services.filter { !known.contains($0.number) }
+        guard !added.isEmpty else { return 0 }
+        channels += added.map { Channel(number: $0.number, name: $0.name) }
+        save()
+        return added.count
+    }
+
     func upsert(_ channel: Channel) {
         if let i = channels.firstIndex(where: { $0.id == channel.id }) {
             channels[i] = channel

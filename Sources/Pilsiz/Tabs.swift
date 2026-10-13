@@ -478,6 +478,8 @@ struct RemoteTab: View {
                 .padding(.top, 4)
             }
 
+            TouchpadCard()
+            KeyboardCard()
             VolumeCard()
 
             Card("Kanal", icon: "list.number") {
@@ -535,6 +537,78 @@ struct RemoteTab: View {
                 .frame(maxWidth: .infinity).frame(height: 32)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.key))
         }
+    }
+}
+
+/// İmleç alanı: fare/trackpad alanın üzerinde gezdikçe TV imleci aynı yönde hareket eder; tıklama OK'dir.
+private struct TouchpadCard: View {
+    @Environment(TVController.self) private var tv
+    @State private var lastLocation: CGPoint?
+    @State private var hovering = false
+    /// Telefon uygulaması ekran noktasını ~1,33 ile çarpıyor; Mac'te alan küçük olduğu için biraz daha hızlı.
+    private let speed = 2.0
+
+    var body: some View {
+        Card(title: "Touchpad", icon: "cursorarrow.motionlines", trailing: {
+            Text("Üzerinde gezdir · tıkla = OK").font(.system(size: 10)).foregroundStyle(.secondary)
+        }) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(hovering ? Theme.accent.opacity(0.10) : Theme.key)
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(hovering ? Theme.accent.opacity(0.5) : .clear))
+                .overlay {
+                    Image(systemName: "hand.point.up.left")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.tertiary)
+                        .opacity(hovering ? 0 : 1)
+                }
+                .frame(height: 120)
+                .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        if let last = lastLocation {
+                            tv.moveCursor(dx: (location.x - last.x) * speed, dy: (location.y - last.y) * speed)
+                        }
+                        lastLocation = location
+                        hovering = true
+                    case .ended:
+                        lastLocation = nil
+                        hovering = false
+                    }
+                }
+                .onTapGesture { tv.press(.ok) }
+                .accessibilityLabel("TV imleç alanı")
+                .accessibilityAddTraits(.isButton)
+        }
+    }
+}
+
+/// Mac klavyesinden TV'deki etkin yazı alanına (ör. YouTube araması) metin gönderir.
+private struct KeyboardCard: View {
+    @Environment(TVController.self) private var tv
+    @State private var text = ""
+
+    var body: some View {
+        Card("Klavye", icon: "keyboard") {
+            HStack(spacing: 6) {
+                TextField("TV'ye yazılacak metin", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(send)
+                Button("Gönder", action: send)
+                    .disabled(text.isEmpty)
+            }
+            Text("Önce TV'de bir yazı alanı açık olmalı, ör. YouTube veya Netflix araması.")
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func send() {
+        guard !text.isEmpty else { return }
+        tv.type(text)
+        text = ""
     }
 }
 

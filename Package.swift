@@ -2,9 +2,9 @@
 import PackageDescription
 
 let package = Package(
-    name: "TVKumanda",
+    name: "Pilsiz",
     platforms: [.macOS(.v14)],
     targets: [
-        .executableTarget(name: "TVKumanda", path: "Sources/TVKumanda")
+        .executableTarget(name: "Pilsiz", path: "Sources/Pilsiz")
     ]
 )

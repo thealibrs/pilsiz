@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum Tab: String, CaseIterable, Identifiable {
@@ -202,6 +203,8 @@ struct RootView: View {
             return .handled
         }
         guard !panel.paletteOpen, tab == .now || tab == .remote else { return .ignored }
+        // Bir yazı alanı düzenleniyorsa (ör. "TV'deki değer") tuşlar ona gitsin.
+        if NSApp.keyWindow?.firstResponder is NSText { return .ignored }
         let key: RemoteKey? = switch press.key {
         case .upArrow: .up
         case .downArrow: .down

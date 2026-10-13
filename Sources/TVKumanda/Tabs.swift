@@ -18,8 +18,32 @@ struct NowTab: View {
                     Text("Kanallar sekmesinde ★ ile işaretlediğin kanallar burada görünür.")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                 } else {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
-                        ForEach(tv.channels.favorites) { channel in ChannelChip(channel: channel) }
+                    TimelineView(.everyMinute) { context in
+                        let chips = HStack(spacing: 6) {
+                            ForEach(tv.channels.favorites) { channel in
+                                ChannelChip(channel: channel, date: context.date)
+                            }
+                        }
+                        Group {
+                            if RootView.scrolls {
+                                ScrollView(.horizontal) { chips }
+                                    .scrollIndicators(.never)
+                                    // Kartın kenarına kadar kaysın.
+                                    .contentMargins(.horizontal, 12, for: .scrollContent)
+                            } else {
+                                // Anlık görüntü modu: satır taşar ama kartı genişletmez.
+                                Color.clear.frame(height: 74)
+                                    .overlay(alignment: .leading) { chips.fixedSize().padding(.leading, 12) }
+                            }
+                        }
+                        .padding(.horizontal, -12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .clipped()
+                        // Sağdaki solma, satırın devam ettiğini belli eder.
+                        .mask(
+                            LinearGradient(stops: [.init(color: .black, location: 0.86), .init(color: .clear, location: 1)],
+                                           startPoint: .leading, endPoint: .trailing)
+                        )
                     }
                 }
             }
@@ -265,21 +289,26 @@ private struct VolumeSlider: View {
 struct ChannelChip: View {
     @Environment(TVController.self) private var tv
     let channel: Channel
+    let date: Date
 
     var body: some View {
         let isCurrent = tv.channels.lastChannelID == channel.id
+        let programme = tv.epg.schedule(for: channel.name, at: date).now
         KeyButton(action: { tv.switchTo(channel) }, help: "\(channel.name) kanalına geç") {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 ChannelLogo(name: channel.name, height: 20)
-                    .frame(maxWidth: 70)
-                Text("\(channel.number) · \(channel.name)")
-                    .font(.system(size: 9.5, weight: .medium))
+                    .frame(maxWidth: 62)
+                    .padding(.bottom, 2)
+                Text(channel.name)
+                    .font(.system(size: 10, weight: .semibold))
+                    .lineLimit(1)
+                Text(programme?.title ?? "\(channel.number). kanal")
+                    .font(.system(size: 9.5))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            .padding(.horizontal, 4)
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
+            .padding(.horizontal, 6)
+            .frame(width: 80, height: 74)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(isCurrent ? Theme.accent.opacity(0.22) : Theme.key)

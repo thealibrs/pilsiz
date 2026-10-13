@@ -17,7 +17,7 @@ enum NameKey {
     static func key(_ name: String) -> String { tokens(name).joined() }
 
     /// Yayın akışında adı farklı geçen kanallar.
-    private static let aliases = ["trtarapca": "trtarabi"]
+    private static let aliases = ["trtarapca": "trtarabi", "stoontv": "spacetoon"]
 
     /// En kesin eşleşmeden en gevşeğe aday anahtarlar ("startv", "star").
     static func candidates(_ name: String) -> [String] {

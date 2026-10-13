@@ -172,6 +172,7 @@ Sources/TVKumanda/
 └── Snapshot.swift       # (yalnızca DEBUG) sekmeleri PNG'ye çizer
 Resources/
 ├── Info.plist
+├── tv.png               # "Ekranda" sekmesindeki gerçekçi TV görseli
 └── Logos/               # Kanal logoları
 ```
 
@@ -202,6 +203,7 @@ Sıradaki adım: Vestel SmartCenter uygulamasını [REA](https://github.com/morl
 - [shkspr.mobi](https://shkspr.mobi/blog/2018/11/telnet-control-of-toshiba-smart-tvs/): Toshiba/Vestel tuş kodları
 - Yayın akışı: [trology85/iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey)
 - Kanal logoları: [tv-logo/tv-logos](https://github.com/tv-logo/tv-logos). Logolar ilgili yayıncıların tescilli markalarıdır; burada yalnızca kişisel kullanım için yer alır.
+- "Ekranda" sekmesindeki TV görseli Higgsfield (GPT Image 2.5) ile üretildi
 - Arayüz fikri: [@greco_dev](https://x.com/greco_dev/status/2109842197654692349)'in LG webOS menü çubuğu uygulaması
 
 ---

@@ -24,6 +24,10 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>“Pilsiz'e söyle” ile televizyona sesli komut verebilmen için mikrofon kullanılır. Ses Mac'ten dışarı gönderilmez.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Sesli komutların Mac'in kendisinde (cihaz içinde) yazıya dökülmesi için konuşma tanıma kullanılır.</string>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Pilsiz, televizyonunuzu yerel ağda bulmak ve ona tuş komutları göndermek için yerel ağ erişimine ihtiyaç duyar.</string>
 </dict>

@@ -40,6 +40,7 @@ struct SettingsTab: View {
                     shortcut("⌃⌥⌘ → / ←", "Kanal + / −")
                     shortcut("⌃⌥⌘ M", "Sessiz")
                     shortcut("⌃⌥⌘ K", "Kanal ara")
+                    shortcut("⌃⌥⌘ Space", "Pilsiz'e söyle (basılı tut ve konuş)")
                     shortcut("⌘K", "Kanal ara (panel açıkken)")
                 }
                 .opacity(globalHotKeys ? 1 : 0.5)

@@ -25,6 +25,21 @@ Fiziksel kumanda kırılınca TV'yi telefondaki *TV Smart Centre* uygulamasıyla
 
 Test edilen cihaz: **Daewoo 43DE54F** (anakart: Vestel **17MB181TC**). Vestel'in SmartCenter altyapısını kullanan diğer TV'lerde de (Vestel, Toshiba, Hitachi, Telefunken, JVC, Finlux…) çalışması beklenir.
 
+## 🎙 Pilsiz'e söyle
+
+Türkçe konuş ya da yaz; Pilsiz anlayıp TV'de yapar. **⌃⌥⌘ Space**'i basılı tutup konuş (kısa basarsan susunca biter), paneldeki 🎙 düğmesine bas ya da ⌘K'ya cümle yaz.
+
+| Söylediğin | Pilsiz |
+|---|---|
+| "TRT biri aç", "kanal 15", "Show TV'yi aç" | Kanala geçer |
+| "Sesi biraz kıs", "sesi 20 yap", "sessize al" | Sesi ayarlar |
+| "Kızılcık Şerbeti ne zaman", "maç hangi kanalda" | Yayın akışından bulur, listeler |
+| "Haberleri aç", "maçı aç", "Survivor'ı aç" | Yayındaysa o kanala geçer; değilse sıradaki yayına hatırlatıcı kurar |
+| "Bu akşam ne var", "ne izlesem" | Akşamın programlarını, en çok izlediğin kanallara göre gösterir |
+| "Televizyonu kapat" | TV'yi kapatır |
+
+**Tamamen cihaz içinde:** konuşma, macOS'un Türkçe cihaz içi konuşma tanımasıyla yazıya dökülür; anlam, Apple'ın cihaz içi dil modeliyle (Foundation Models, macOS 26 + Apple Intelligence) çıkarılır. İnternet, hesap ya da API anahtarı gerekmez; ses Mac'ten çıkmaz. Sık komutlar (numara, ses, aç/kapat, "bu akşam") modele gitmeden kurallarla anında çözülür. Kanal ve program bilgisi her zaman uygulamanın kendi verisinden gelir; model yalnızca niyeti anlar, kanal ya da program uydurmaz. Apple Intelligence yoksa basit komutlar yine çalışır.
+
 ## Özellikler
 
 | | |
@@ -53,6 +68,7 @@ Ayrıca:
   | `⌃⌥⌘ →` / `⌃⌥⌘ ←` | Kanal + / − |
   | `⌃⌥⌘ M` | Sessiz |
   | `⌃⌥⌘ K` | Paneli kanal aramasıyla aç |
+  | `⌃⌥⌘ Space` | Pilsiz'e söyle (basılı tut ve konuş) |
 
   ⌃⌥⌘ seçildi çünkü ⌥⌘←/→ tarayıcılarda sekme değiştirir.
 
@@ -87,7 +103,7 @@ Ayrıca:
 
 ## Kurulum
 
-**Gereksinimler:** macOS 14 veya üstü, Xcode 16+ (Swift 6 araç zinciri). Harici bağımlılık yok.
+**Gereksinimler:** Çalıştırmak için macOS 14 veya üstü ("Pilsiz'e söyle"nin dil modeli için macOS 26 ve Apple Intelligence). Derlemek için Xcode 26 (macOS 26 SDK, Swift 6). Harici bağımlılık yok.
 
 ```bash
 git clone https://github.com/thealibrs/pilsiz.git
@@ -199,7 +215,7 @@ Açık olan uygulama, `GET /apps/<ad>` yanıtındaki `<state>running</state>` il
 
 ### Yayın akışı
 
-Programlar, her gün otomatik güncellenen açık kaynak [iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey) XMLTV akışından gelir (Türksat'taki ~180 kanal, 7 gün). Akış 6 saatte bir yenilenir ve `~/Library/Application Support/Pilsiz/epg.xml` altında önbelleğe alınır. Kanallar adlarıyla eşleştirilir (`"STAR TV HD"` ↔ `"Star"`, `"HABERTÜRK HD"` ↔ `"HABERTÜRK TV"`).
+Programlar iki açık XMLTV kaynağından birleştirilir: **[epgshare01](https://epgshare01.online/epgshare01/)** (178 kanal, 3 gün; gzip, macOS'un yerleşik DEFLATE çözücüsüyle açılır) ve onda olmayan kanallar için **[iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey)** (yalnızca o gün). İkisi aynı yayın verisini veriyor; üçüncü bir kaynağın (iptv-epg.org) saatleri tutmadığı için kullanılmadı. Akış 6 saatte bir ve gün değişince yenilenir, `~/Library/Application Support/Pilsiz/` altında önbelleğe alınır. Kanallar adlarıyla eşleştirilir (`"STAR TV HD"` ↔ `"Star"`, `"HABERTÜRK HD"` ↔ `"HABERTÜRK TV"`).
 
 ### Kanal geçişi
 
@@ -224,6 +240,8 @@ Sources/Pilsiz/
 ├── CommandPalette.swift # ⌘K hızlı arama
 ├── HotKeys.swift        # Sistem geneli kısayollar (Carbon)
 ├── YouTube.swift        # YouTube linki ayrıştırma ve Lounge ile TV'de oynatma
+├── Assistant.swift      # Pilsiz'e söyle: kurallar + cihaz içi model, eylemler
+├── Voice.swift          # Türkçe cihaz içi konuşma tanıma ve ekranın üstündeki kapsül
 ├── Components.swift     # Tema ve ortak bileşenler
 └── Snapshot.swift       # (yalnızca DEBUG) sekmeleri PNG'ye çizer
 Resources/
@@ -256,7 +274,7 @@ Kalanlar için sıradaki adım: SmartCenter'ın Android APK'sını REA ile stati
 - [pyvesteltv](https://github.com/T3m3z/pyvesteltv) ve [ha-vestel-component](https://github.com/andylynch/ha-vestel-component)
 - [node-red-contrib-vestel-tv](https://github.com/hyttysmyrkky/node-red-contrib-vestel-tv): genişletilmiş tuş haritası
 - [shkspr.mobi](https://shkspr.mobi/blog/2018/11/telnet-control-of-toshiba-smart-tvs/): Toshiba/Vestel tuş kodları
-- Yayın akışı: [trology85/iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey)
+- Yayın akışı: [epgshare01](https://epgshare01.online/epgshare01/) ve [trology85/iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey)
 - Kanal logoları: [tv-logo/tv-logos](https://github.com/tv-logo/tv-logos). Logolar ilgili yayıncıların tescilli markalarıdır; burada yalnızca kişisel kullanım için yer alır.
 - "Ekranda" sekmesindeki TV görseli Higgsfield (GPT Image 2.5) ile üretildi
 - Arayüz fikri: [@greco_dev](https://x.com/greco_dev/status/2109842197654692349)'in LG webOS menü çubuğu uygulaması

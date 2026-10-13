@@ -115,7 +115,32 @@ struct RootView: View {
         if panel.paletteOpen {
             CommandPalette()
         } else {
-            tabContent
+            VStack(spacing: 10) {
+                if tv.assistant.phase != .idle {
+                    AssistantBubble(assistant: tv.assistant, onItem: openAssistantItem)
+                        .overlay(alignment: .topTrailing) {
+                            Button { tv.assistant.reset() } label: {
+                                Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
+                                    .padding(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+                tabContent
+            }
+            .animation(.snappy(duration: 0.2), value: tv.assistant.phase)
+        }
+    }
+
+    /// Cevaptaki satıra tıklanınca: yayındaysa kanala geç, ileride ise hatırlatıcı kur.
+    private func openAssistantItem(_ item: AssistantReply.Item) {
+        if let programme = item.programme, programme.start > Date() {
+            if !tv.reminders.isSet(channel: item.channel, programme: programme) {
+                tv.reminders.toggle(channel: item.channel, programme: programme)
+            }
+        } else {
+            tv.switchTo(item.channel)
         }
     }
 
@@ -144,6 +169,19 @@ struct RootView: View {
                 Text("Daewoo 43DE54F · Vestel").font(.system(size: 10.5)).foregroundStyle(.secondary)
             }
             Spacer()
+            Button {
+                if tv.isListening { tv.finishListening() } else { tv.startListening() }
+            } label: {
+                Image(systemName: tv.isListening ? "waveform" : "mic.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(tv.isListening ? .white : .secondary)
+                    .symbolEffect(.variableColor.iterative, isActive: tv.isListening)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(tv.isListening ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Theme.key)))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Pilsiz'e söyle (⌃⌥⌘ Space)")
             Button {
                 panel.paletteOpen.toggle()
             } label: {

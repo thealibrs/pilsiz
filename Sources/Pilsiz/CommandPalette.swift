@@ -33,7 +33,7 @@ struct CommandPalette: View {
                     .font(.system(size: 14))
                     .focused($focused)
                     .onSubmit {
-                        if let youtube { playYouTube(youtube) } else { choose(results) }
+                        if let youtube { playYouTube(youtube) } else if results.isEmpty { askAssistant() } else { choose(results) }
                     }
                     .onKeyPress(.downArrow) { move(1, in: results); return .handled }
                     .onKeyPress(.upArrow) { move(-1, in: results); return .handled }
@@ -74,6 +74,22 @@ struct CommandPalette: View {
                     row(result, selected: index == selection)
                         .onTapGesture { tv.switchTo(result.channel); close() }
                 }
+            }
+            if youtube == nil, query.trimmingCharacters(in: .whitespaces).count >= 3 {
+                // Kanal bulunamazsa ya da cümle kurulduysa: doğal dil isteği.
+                HStack(spacing: 10) {
+                    Image(systemName: "sparkles").foregroundStyle(Theme.accent).frame(width: 24)
+                    Text("Pilsiz'e sor: “\(query)”").font(.system(size: 12.5, weight: .medium)).lineLimit(1)
+                    Spacer()
+                    if results.isEmpty {
+                        Image(systemName: "return").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.accent)
+                    }
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(results.isEmpty ? Theme.accent.opacity(0.18) : Color.white.opacity(0.04)))
+                .contentShape(Rectangle())
+                .onTapGesture { askAssistant() }
             }
             if !results.isEmpty {
                 Text("↑↓ seç · ↩ kanala geç · esc kapat")
@@ -136,6 +152,12 @@ struct CommandPalette: View {
     private func move(_ step: Int, in results: [Result]) {
         guard !results.isEmpty else { return }
         selection = (selection + step + results.count) % results.count
+    }
+
+    private func askAssistant() {
+        let text = query
+        tv.ask(text)
+        close()
     }
 
     private func playYouTube(_ video: YouTubeVideo) {

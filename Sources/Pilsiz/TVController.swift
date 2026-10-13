@@ -66,6 +66,9 @@ final class TVController {
     let epg = EPGStore()
     let reminders = ReminderStore()
     let youtube = YouTubeCaster()
+    let assistant = Assistant()
+    private let voice = VoiceListener()
+    var isListening: Bool { assistant.phase == .listening }
 
     var isOnline: Bool { status == .online }
     var inputs: [String] {
@@ -246,6 +249,39 @@ final class TVController {
             try await SmartCenter.send(RemoteKey.source.rawValue, to: host)
             try await Task.sleep(for: .milliseconds(1200))
             try await SmartCenter.send(RemoteKey.digit(min(index + 1, 9)).rawValue, to: host)
+        }
+    }
+
+    // MARK: - Pilsiz'e söyle
+
+    /// Yazılı istek (⌘K aramasından).
+    func ask(_ text: String) {
+        Task { await assistant.handle(text, tv: self) }
+    }
+
+    /// Mikrofonu açar; konuşma bitince (sessizlik ya da `finishListening`) isteği işler.
+    func startListening() {
+        guard !voice.isListening, assistant.phase != .listening else { return }
+        assistant.beginListening()
+        Task {
+            guard await VoiceListener.authorize() else {
+                assistant.fail("Mikrofon ya da konuşma tanıma izni yok: Sistem Ayarları › Gizlilik ve Güvenlik.")
+                return
+            }
+            do {
+                try voice.start(onText: { [weak self] in self?.assistant.updateTranscript($0) },
+                                onSilence: { [weak self] in self?.finishListening() })
+            } catch {
+                assistant.fail(error.localizedDescription)
+            }
+        }
+    }
+
+    func finishListening() {
+        guard voice.isListening else { return }
+        Task {
+            let text = await voice.stop()
+            await assistant.handle(text, tv: self)
         }
     }
 

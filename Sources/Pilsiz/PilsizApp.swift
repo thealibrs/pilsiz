@@ -35,6 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private let hotKeys = GlobalHotKeys()
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
+    private lazy var hud = VoiceHUD(tv: tv)
+    private var talkKeyDown: Date?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -55,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         UNUserNotificationCenter.current().delegate = self
         ReminderStore.registerCategory()
+        observeAssistant()
 
         applySettings()
         NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
@@ -88,6 +91,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         NSApp.activate()
         popover.contentViewController?.view.window?.makeKey()
         Task { await tv.refresh() }
+    }
+
+    // MARK: - Pilsiz'e söyle
+
+    private func talkPressed() {
+        talkKeyDown = Date()
+        if tv.isListening { tv.finishListening() } else { tv.startListening() }
+    }
+
+    private func talkReleased() {
+        defer { talkKeyDown = nil }
+        guard let down = talkKeyDown, Date().timeIntervalSince(down) > 0.45 else { return }
+        tv.finishListening()
+    }
+
+    /// Panel kapalıyken asistanın durumu ekranın üstündeki kapsülde gösterilir.
+    private func observeAssistant() {
+        let phase = withObservationTracking { tv.assistant.phase } onChange: { [weak self] in
+            Task { @MainActor in self?.observeAssistant() }
+        }
+        guard !popover.isShown else { return }
+        switch phase {
+        case .idle:
+            break
+        case .listening, .thinking:
+            hud.show()
+        case .done:
+            hud.show()
+            let lines = tv.assistant.reply?.items.count ?? 0
+            hud.hide(after: lines == 0 ? 3.5 : 6 + Double(lines)) { [weak self] in
+                if self?.tv.assistant.phase == .done { self?.tv.assistant.reset() }
+            }
+        }
     }
 
     private func showPalette() {
@@ -125,6 +161,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             .init(keyCode: kVK_LeftArrow) { [tv] in tv.press(.channelDown) },
             .init(keyCode: kVK_ANSI_M) { [tv] in tv.press(.mute) },
             .init(keyCode: kVK_ANSI_K) { [weak self] in self?.showPalette() },
+            // Basılı tut ve konuş; kısa basışta konuşma bitince kendiliğinden durur.
+            .init(keyCode: kVK_Space, action: { [weak self] in self?.talkPressed() },
+                  release: { [weak self] in self?.talkReleased() }),
         ])
     }
 

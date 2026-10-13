@@ -41,7 +41,7 @@ Ayrıca:
 - 🔔 **Program hatırlatıcı:** Kanallar listesindeki takvim düğmesinden ya da "Sırada" satırındaki zilden bir programa hatırlatıcı kur. Başlamadan 5 dk önce gelen bildirimdeki **Kanala geç** düğmesi, TV kapalıysa önce açar, sonra o kanala geçer.
 - 📡 **Kanal listesi TV'den:** Kanallar sekmesindeki ⟳ düğmesiyle (ve günde bir kendiliğinden) TV'deki tüm kanallar (radyolar hariç) listeye eklenir; düzenlediğin adlar ve favoriler korunur.
 - ⌨️ **Klavye:** Kumanda sekmesinden yazdığın metin TV'deki etkin yazı alanına (YouTube, Netflix araması) gider.
-- 🖱 **Touchpad:** Fareyi Kumanda sekmesindeki alanın üzerinde gezdirdikçe TV imleci hareket eder; tıklama OK'dir.
+- 🖱 **Touchpad:** Fareyi Kumanda sekmesindeki alanın üzerinde gezdirdikçe TV imleci hareket eder; tıklama OK'dir. TV imleci yalnızca **tarayıcı** gibi web ekranlarında gösterir, canlı yayında ve menülerde göstermez (telefon uygulamasında da böyle).
 - 🔎 **Hızlı arama (⌘K):** Kanal adı, numarası ya da **yayındaki program adıyla** ara ("kuruluş" yazınca dizinin olduğu kanal çıkar); ↑↓ ile seç, ↩ ile geç.
 - 🧷 **Menü çubuğunda kanal:** Simgenin yanında kanal adı ya da "kanal · program" yazar (Ayarlar'dan seçilir).
 - ⌨️ **Her yerde çalışan kısayollar** (panel kapalıyken de; Ayarlar'dan kapatılabilir):
@@ -89,8 +89,8 @@ Ayrıca:
 **Gereksinimler:** macOS 14 veya üstü, Xcode 16+ (Swift 6 araç zinciri). Harici bağımlılık yok.
 
 ```bash
-git clone https://github.com/thealibrs/tv-kumanda.git
-cd tv-kumanda
+git clone https://github.com/thealibrs/pilsiz.git
+cd pilsiz
 ./build.sh
 ```
 

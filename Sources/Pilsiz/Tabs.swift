@@ -580,6 +580,16 @@ private struct TouchpadCard: View {
                 .onTapGesture { tv.press(.ok) }
                 .accessibilityLabel("TV imleç alanı")
                 .accessibilityAddTraits(.isButton)
+            HStack(spacing: 8) {
+                // Canlı yayında ve menülerde TV imleç göstermiyor; tarayıcıda gösteriyor (13.10.2026'da doğrulandı).
+                Text("TV imleci yalnızca tarayıcı gibi web ekranlarında gösterir.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 4)
+                Button("Tarayıcıyı aç") { tv.send(code: 1065) }
+                    .controlSize(.small)
+            }
         }
     }
 }

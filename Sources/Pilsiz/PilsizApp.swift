@@ -201,18 +201,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         button.image = image
 
         let style = MenuBarStyle(rawValue: UserDefaults.standard.string(forKey: "menuBarStyle") ?? "") ?? .channel
-        button.title = statusTitle(style: style).map { " " + $0 } ?? ""
-        button.font = .menuBarFont(ofSize: 0)
+        button.attributedTitle = statusTitle(style: style)
     }
 
-    private func statusTitle(style: MenuBarStyle) -> String? {
-        guard style != .icon, tv.isOnline else { return nil }
-        if let app = tv.runningApp { return app.name }
-        guard let channel = tv.currentChannel else { return nil }
-        let name = shortName(channel.name)
-        guard style == .programme, let programme = tv.epg.schedule(for: channel.name).now else { return name }
-        let title = programme.title.count > 22 ? programme.title.prefix(21) + "…" : programme.title
-        return "\(name) · \(title)"
+    /// Kanal, logosu varsa adı yerine logosuyla gösterilir.
+    private func statusTitle(style: MenuBarStyle) -> NSAttributedString {
+        let font = NSFont.menuBarFont(ofSize: 0)
+        func text(_ string: String) -> NSAttributedString {
+            NSAttributedString(string: string, attributes: [.font: font])
+        }
+        guard style != .icon, tv.isOnline else { return text("") }
+        if let app = tv.runningApp { return text(" " + app.name) }
+        guard let channel = tv.currentChannel else { return text("") }
+
+        let title = NSMutableAttributedString(attributedString: text(" "))
+        if let logo = LogoCatalog.image(for: channel.name), logo.size.height > 0 {
+            let height: CGFloat = 14
+            let attachment = NSTextAttachment()
+            attachment.image = logo
+            // Logo satırın ortasına gelsin diye taban çizgisinin altına sarkıtılır.
+            attachment.bounds = NSRect(x: 0, y: (font.capHeight - height) / 2,
+                                       width: logo.size.width / logo.size.height * height, height: height)
+            title.append(NSAttributedString(attachment: attachment))
+        } else {
+            title.append(text(shortName(channel.name)))
+        }
+        if style == .programme, let programme = tv.epg.schedule(for: channel.name).now {
+            let name = programme.title.count > 22 ? programme.title.prefix(21) + "…" : programme.title
+            title.append(text(" · \(name)"))
+        }
+        return title
     }
 
     /// "TRT 1 HD" → "TRT 1": menü çubuğunda yer kazanmak için.

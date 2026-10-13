@@ -9,7 +9,7 @@ enum Snapshot {
         guard let dir = ProcessInfo.processInfo.environment["TVKUMANDA_SNAPSHOT"] else { return }
         RootView.scrolls = false
         Task {
-            try? await Task.sleep(for: .seconds(4))
+            try? await Task.sleep(for: .seconds(8))
             for tab in Tab.allCases {
                 UserDefaults.standard.set(tab.rawValue, forKey: "tab")
                 let renderer = ImageRenderer(content: RootView().environment(tv))

@@ -7,19 +7,8 @@ import SwiftUI
 enum LogoCatalog {
     private static var cache: [String: NSImage?] = [:]
 
-    static func key(for name: String) -> String {
-        // Türkçe yerel ayarı "I"yı "ı"ya çevirdiği için dil bağımsız katlanır; dosya adları ASCII.
-        let folded = name.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
-            .lowercased()
-            .replacingOccurrences(of: "ı", with: "i")
-        return folded
-            .split { !$0.isLetter && !$0.isNumber }
-            .filter { $0 != "hd" }
-            .joined()
-    }
-
     static func image(for name: String) -> NSImage? {
-        let key = key(for: name)
+        let key = NameKey.key(name)
         if let cached = cache[key] { return cached }
         var url = Bundle.main.url(forResource: key, withExtension: "png", subdirectory: "Logos")
         #if DEBUG

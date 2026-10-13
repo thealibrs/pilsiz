@@ -53,6 +53,7 @@ final class TVController {
 
     let channels = ChannelStore()
     let activity = ActivityStore()
+    let epg = EPGStore()
 
     var isOnline: Bool { status == .online }
     var inputs: [String] {

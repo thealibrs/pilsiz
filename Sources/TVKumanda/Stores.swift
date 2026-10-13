@@ -13,7 +13,9 @@ struct Channel: Codable, Identifiable, Hashable {
 @Observable
 final class ChannelStore {
     private(set) var channels: [Channel] = []
-    var lastChannelID: UUID?
+    var lastChannelID: UUID? {
+        didSet { UserDefaults.standard.set(lastChannelID?.uuidString, forKey: "lastChannelID") }
+    }
 
     var favorites: [Channel] { channels.filter(\.favorite) }
     var nextFreeNumber: Int { (channels.map(\.number).max() ?? 0) + 1 }
@@ -24,6 +26,7 @@ final class ChannelStore {
             channels = saved
         }
         seedIfNeeded()
+        lastChannelID = UserDefaults.standard.string(forKey: "lastChannelID").flatMap(UUID.init)
     }
 
     /// Kullanıcının TV'sindeki kanal sırası (SmartCenter uygulamasının ekran görüntülerinden, 13.10.2026).

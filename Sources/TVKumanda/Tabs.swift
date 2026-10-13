@@ -35,12 +35,25 @@ struct NowTab: View {
     }
 
     private var screen: some View {
-        VStack(spacing: 0) {
+        TimelineView(.everyMinute) { context in
+            screen(at: context.date)
+        }
+    }
+
+    /// Kanal açıksa yayın akışındaki şimdiki ve sıradaki program.
+    private func schedule(at date: Date) -> (now: Programme?, next: Programme?) {
+        guard tv.isOnline, tv.runningApp == nil, let channel = tv.currentChannel else { return (nil, nil) }
+        return tv.epg.schedule(for: channel.name, at: date)
+    }
+
+    private func screen(at date: Date) -> some View {
+        let programme = schedule(at: date)
+        return VStack(spacing: 0) {
             ZStack {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(LinearGradient(colors: [Color(white: 0.13), Color(white: 0.03)], startPoint: .top, endPoint: .bottom))
                     .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.white.opacity(0.18), lineWidth: 2))
-                screenContent
+                screenContent(programme.now)
             }
             .frame(height: 118)
             .padding(.horizontal, 22)
@@ -58,14 +71,19 @@ struct NowTab: View {
                 if tv.isOnline, let input = tv.currentInput { SectionLabel(text: input, color: Theme.accent) }
             }
             .padding(.top, 10)
-            Text(subtitle)
-                .font(.system(size: 12))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 2)
+            if let now = programme.now {
+                ProgrammeSummary(now: now, next: programme.next, date: date)
+                    .padding(.top, 4)
+            } else {
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 2)
+            }
         }
     }
 
-    @ViewBuilder private var screenContent: some View {
+    @ViewBuilder private func screenContent(_ programme: Programme?) -> some View {
         if !tv.isOnline {
             VStack(spacing: 6) {
                 Image(systemName: "power").font(.system(size: 22))
@@ -79,11 +97,13 @@ struct NowTab: View {
             }
         } else if let channel = tv.currentChannel {
             VStack(spacing: 8) {
-                ChannelLogo(name: channel.name, height: 46)
+                ChannelLogo(name: channel.name, height: programme == nil ? 46 : 38)
                     .frame(maxWidth: 170)
-                Text("\(channel.number) · \(channel.name)")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                Text(programme?.title ?? "\(channel.number) · \(channel.name)")
+                    .font(.system(size: programme == nil ? 11 : 13, weight: .semibold))
+                    .foregroundStyle(programme == nil ? .secondary : .primary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 14)
             }
         } else {
             VStack(spacing: 6) {
@@ -98,6 +118,43 @@ struct NowTab: View {
         if let app = tv.runningApp { return "\(app.name) açık." }
         if let channel = tv.currentChannel { return "\(channel.number). kanal · \(channel.name)" }
         return "Senin TV'n. Senin salonun. Senin kumandan."
+    }
+}
+
+/// Şimdiki program: saat aralığı, ilerleme ve sıradaki program.
+struct ProgrammeSummary: View {
+    let now: Programme
+    let next: Programme?
+    let date: Date
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(now.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Spacer(minLength: 8)
+                Text("\(clock(now.start))–\(clock(now.stop))")
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            GeometryReader { proxy in
+                Capsule().fill(Theme.key)
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(Theme.accent).frame(width: proxy.size.width * now.progress(at: date))
+                    }
+            }
+            .frame(height: 3)
+            if let next {
+                Text("Sırada \(clock(next.start)) · \(next.title)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private func clock(_ date: Date) -> String {
+        date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
     }
 }
 

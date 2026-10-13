@@ -27,9 +27,9 @@ Test edilen cihaz: **Daewoo 43DE54F** (anakart: Vestel **17MB181TC**). Vestel'in
 
 | | |
 |---|---|
-| 🖥 **Ekranda** | TV'de o an ne açık (kanal logosu, Netflix/Prime Video/YouTube), ses, favori kanallar, uygulamalar, girişler |
+| 🖥 **Ekranda** | TV'de o an ne açık: kanal logosu, **yayındaki program**, ilerlemesi ve sıradaki program; ya da Netflix/Prime Video/YouTube. Ses, favori kanallar, uygulamalar, girişler |
 | 🎮 **Kumanda** | Yön tuşları + OK, ana ekran, geri, menü, çıkış, medya tuşları, kanal ±, rakamlar, renkli tuşlar. Basılı tutunca tekrarlar |
-| 📋 **Kanallar** | Logolu kanal listesi. Tıkla, TV o kanala geçsin. Arama, favoriler (★), düzenleme ve kanal tarama sihirbazı |
+| 📋 **Kanallar** | Logolu kanal listesi; her kanalın altında o an yayındaki program. Tıkla, TV o kanala geçsin. Arama, favoriler (★), düzenleme ve kanal tarama sihirbazı |
 | 🔲 **Uygulamalar** | Netflix, Prime Video ve YouTube'u tek tıkla aç. Hangisinin açık olduğu izlenir |
 | 📊 **Aktivite** | TV'nin açık kaldığı süre, en çok izlenen kanallar, uygulama süreleri (bugün / 7 gün / 30 gün) |
 | ⚙️ **Ayarlar** | TV menü kısayolları, IP/MAC, giriş sırası, oturum açılışında başlatma, ham tuş kodu deneme |
@@ -145,6 +145,10 @@ Connection: close
 
 Açık olan uygulama, `GET /apps/<ad>` yanıtındaki `<state>running</state>` ile izlenir.
 
+### Yayın akışı
+
+Programlar, her gün otomatik güncellenen açık kaynak [iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey) XMLTV akışından gelir (Türksat'taki ~180 kanal, 7 gün). Akış 6 saatte bir yenilenir ve `~/Library/Application Support/TVKumanda/epg.xml` altında önbelleğe alınır. Kanallar adlarıyla eşleştirilir (`"STAR TV HD"` ↔ `"Star"`, `"HABERTÜRK HD"` ↔ `"HABERTÜRK TV"`).
+
 ### Kanal geçişi
 
 TV kanal adlarını ağ üzerinden vermez. Bu yüzden kanal listesi Mac'te tutulur; bir kanala tıklamak, numarasını rakam rakam tuşlar. Logolar, kanal adından türetilen anahtarla eşleşir: `"TRT 1 HD"` → `trt1.png`, `"HABERTÜRK HD"` → `haberturk.png`.
@@ -163,6 +167,7 @@ Sources/TVKumanda/
 ├── ChannelsTab.swift    # Kanal listesi, düzenleyici, tarama sihirbazı
 ├── SettingsTab.swift    # Ayarlar
 ├── ChannelLogo.swift    # Logo eşleştirme ve yedek rozet
+├── EPG.swift            # Yayın akışı: indirme, önbellek, XMLTV ayrıştırma, ad eşleştirme
 ├── Components.swift     # Tema ve ortak bileşenler
 └── Snapshot.swift       # (yalnızca DEBUG) sekmeleri PNG'ye çizer
 Resources/
@@ -195,6 +200,7 @@ Sıradaki adım: Vestel SmartCenter uygulamasını [REA](https://github.com/morl
 - [pyvesteltv](https://github.com/T3m3z/pyvesteltv) ve [ha-vestel-component](https://github.com/andylynch/ha-vestel-component)
 - [node-red-contrib-vestel-tv](https://github.com/hyttysmyrkky/node-red-contrib-vestel-tv): genişletilmiş tuş haritası
 - [shkspr.mobi](https://shkspr.mobi/blog/2018/11/telnet-control-of-toshiba-smart-tvs/): Toshiba/Vestel tuş kodları
+- Yayın akışı: [trology85/iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey)
 - Kanal logoları: [tv-logo/tv-logos](https://github.com/tv-logo/tv-logos). Logolar ilgili yayıncıların tescilli markalarıdır; burada yalnızca kişisel kullanım için yer alır.
 - Arayüz fikri: [@greco_dev](https://x.com/greco_dev/status/2109842197654692349)'in LG webOS menü çubuğu uygulaması
 

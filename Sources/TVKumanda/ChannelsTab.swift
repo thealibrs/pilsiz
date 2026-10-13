@@ -38,8 +38,10 @@ struct ChannelsTab: View {
             if tv.channels.channels.isEmpty, !scanning, editing == nil {
                 emptyState
             } else {
-                VStack(spacing: 4) {
-                    ForEach(filtered) { channel in row(channel) }
+                TimelineView(.everyMinute) { context in
+                    VStack(spacing: 4) {
+                        ForEach(filtered) { channel in row(channel, at: context.date) }
+                    }
                 }
             }
         }
@@ -53,8 +55,9 @@ struct ChannelsTab: View {
         }
     }
 
-    private func row(_ channel: Channel) -> some View {
+    private func row(_ channel: Channel, at date: Date) -> some View {
         let isCurrent = tv.channels.lastChannelID == channel.id
+        let programme = tv.epg.schedule(for: channel.name, at: date).now
         return HStack(spacing: 10) {
             Text("\(channel.number)")
                 .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -63,7 +66,15 @@ struct ChannelsTab: View {
             ChannelLogo(name: channel.name, height: 20)
                 .frame(width: 58, height: 30)
                 .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.black.opacity(0.35)))
-            Text(channel.name).font(.system(size: 12.5, weight: .medium)).lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(channel.name).font(.system(size: 12.5, weight: .medium)).lineLimit(1)
+                if let programme {
+                    Text(programme.title)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
             Spacer()
             if isCurrent, tv.isOnline { SectionLabel(text: "Ekranda", color: Theme.accent) }
             Button { tv.channels.toggleFavorite(channel) } label: {

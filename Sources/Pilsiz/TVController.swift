@@ -67,6 +67,7 @@ final class TVController {
     let reminders = ReminderStore()
     let youtube = YouTubeCaster()
     let assistant = Assistant()
+    let share = ScreenShare()
     private let voice = VoiceListener()
     var isListening: Bool { assistant.phase == .listening }
 

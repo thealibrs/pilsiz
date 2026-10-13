@@ -211,6 +211,45 @@ enum SmartCenter {
     }
 
     /// DIAL ile bir uygulama başlatır (ör. "Netflix").
+    /// TV'de bir web sayfasını HbbTV uygulaması olarak açar (Vewd DIAL sunucusu, port 12345).
+    /// TV her açılışta "Evet/Hayır" onayı sorar; yanıt onaya kadar bekleyebildiği için zaman aşımı hata sayılmaz.
+    static func launchHbbTV(url: String, on host: String) async throws {
+        let base = url.hasSuffix("/") ? url : url + "/"
+        let ait = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <mhp:ServiceDiscovery xmlns:mhp="urn:dvb:mhp:2009" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <mhp:ApplicationDiscovery DomainName="pilsiz.local">
+            <mhp:ApplicationList>
+              <mhp:Application>
+                <mhp:appName Language="tur">Pilsiz</mhp:appName>
+                <mhp:applicationIdentifier><mhp:orgId>1</mhp:orgId><mhp:appId>1</mhp:appId></mhp:applicationIdentifier>
+                <mhp:applicationDescriptor>
+                  <mhp:type><mhp:OtherApp>application/vnd.hbbtv.xhtml+xml</mhp:OtherApp></mhp:type>
+                  <mhp:controlCode>AUTOSTART</mhp:controlCode>
+                  <mhp:visibility>VISIBLE_ALL</mhp:visibility>
+                  <mhp:serviceBound>false</mhp:serviceBound>
+                  <mhp:priority>1</mhp:priority>
+                  <mhp:version>01</mhp:version>
+                  <mhp:mhpVersion><mhp:profile>0</mhp:profile><mhp:versionMajor>1</mhp:versionMajor><mhp:versionMinor>3</mhp:versionMinor><mhp:versionMicro>1</mhp:versionMicro></mhp:mhpVersion>
+                </mhp:applicationDescriptor>
+                <mhp:applicationTransport xsi:type="mhp:HTTPTransportType"><mhp:URLBase>\(base)</mhp:URLBase></mhp:applicationTransport>
+                <mhp:applicationLocation>index.html</mhp:applicationLocation>
+              </mhp:Application>
+            </mhp:ApplicationList>
+          </mhp:ApplicationDiscovery>
+        </mhp:ServiceDiscovery>
+        """
+        do {
+            let response = try await RawHTTP.request(
+                host: host, port: 12345, method: "POST", path: "/apps/HbbTV", body: ait,
+                contentType: "text/plain; charset=utf-8", timeout: 3
+            )
+            guard (200..<300).contains(response.status) else { throw TVError.http(response.status) }
+        } catch TVError.timeout {
+            // Onay bekleniyor.
+        }
+    }
+
     static func launch(app: String, on host: String, body: String? = nil) async throws {
         let response = try await RawHTTP.request(
             host: host, port: port, method: "POST", path: "/apps/\(app)", body: body,

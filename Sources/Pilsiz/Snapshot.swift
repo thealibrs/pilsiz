@@ -7,6 +7,23 @@ import SwiftUI
 enum Snapshot {
     /// Anlık görüntü modu başladıysa true; çağıran paket gerektiren kurulumları (bildirimler) atlamalı.
     static func runIfRequested(_ tv: TVController) -> Bool {
+        // PILSIZ_SHARE="dosya|dosya": TV'de göster akışını dener (otomatik onay dahil), 40 sn sonra kapatır.
+        if let files = ProcessInfo.processInfo.environment["PILSIZ_SHARE"] {
+            Task {
+                for _ in 0..<20 where !tv.isOnline { try? await Task.sleep(for: .milliseconds(500)) }
+                tv.share.share(files.split(separator: "|").map { URL(fileURLWithPath: String($0)) }, tv: tv)
+                var last = ""
+                for second in 0..<40 {
+                    let now = String(describing: tv.share.activity)
+                    if now != last { print("\(second) sn:", now); last = now }
+                    try? await Task.sleep(for: .seconds(1))
+                }
+                tv.share.stop()
+                try? await Task.sleep(for: .seconds(3))
+                exit(0)
+            }
+            return true
+        }
         // PILSIZ_ASK="istek|istek": asistanın anlamasını dener; yalnızca TV'yi değiştirmeyen istekleri uygular.
         if let asks = ProcessInfo.processInfo.environment["PILSIZ_ASK"] {
             Task {

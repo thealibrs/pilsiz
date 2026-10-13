@@ -45,7 +45,8 @@ Türkçe konuş ya da yaz; Pilsiz anlayıp TV'de yapar. **⌃⌥⌘ Space**'i ba
 | | |
 |---|---|
 | 🖥 **Ekranda** | TV'de o an ne açık: kanal logosu, **yayındaki program**, ilerlemesi ve sıradaki program; ya da Netflix/Prime Video/YouTube. Ses, favori kanallar, uygulamalar, girişler |
-| 🎮 **Kumanda** | Yön tuşları + OK, ana ekran, geri, menü, çıkış, medya tuşları, kanal ±, rakamlar, renkli tuşlar. Basılı tutunca tekrarlar |
+| 🎮 **Kumanda** | TV'nin kendi kumandasına benzeyen, kaydırmasız gövde: yön tuşları + OK, ana ekran, geri, menü, çıkış, medya tuşları, kanal ±, rakamlar, renkli tuşlar. Basılı tutunca tekrarlar |
+| 📺 **TV'de göster** | Mac ekranını TV'ye yansıt, fotoğrafları slayt olarak göster, video oynat (AirPlay olmadan, HbbTV ile) |
 | 📋 **Kanallar** | Logolu kanal listesi; her kanalın altında o an yayındaki program. Tıkla, TV o kanala geçsin. Arama, favoriler (★), düzenleme ve kanal tarama sihirbazı |
 | 🔲 **Uygulamalar** | Netflix, Prime Video ve YouTube'u tek tıkla aç. Hangisinin açık olduğu izlenir |
 | 📊 **Aktivite** | TV'nin açık kaldığı süre, en çok izlenen kanallar, uygulama süreleri (bugün / 7 gün / 30 gün) |
@@ -56,8 +57,6 @@ Ayrıca:
 - 🔔 **Program hatırlatıcı:** Kanallar listesindeki takvim düğmesinden ya da "Sırada" satırındaki zilden bir programa hatırlatıcı kur. Başlamadan 5 dk önce gelen bildirimdeki **Kanala geç** düğmesi, TV kapalıysa önce açar, sonra o kanala geçer.
 - ▶️ **YouTube linkini TV'de aç:** Linki Uygulamalar sekmesindeki karta yapıştır, panele sürükle-bırak ya da ⌘K'ya yapıştır; video (varsa zaman damgası ve oynatma listesiyle) TV'deki YouTube'da başlar. Panodaki link kendiliğinden önerilir.
 - 📡 **Kanal listesi TV'den:** Kanallar sekmesindeki ⟳ düğmesiyle (ve günde bir kendiliğinden) TV'deki tüm kanallar (radyolar hariç) listeye eklenir; düzenlediğin adlar ve favoriler korunur.
-- ⌨️ **Klavye:** Kumanda sekmesinden yazdığın metin TV'deki etkin yazı alanına (YouTube, Netflix araması) gider.
-- 🖱 **Touchpad:** Fareyi Kumanda sekmesindeki alanın üzerinde gezdirdikçe TV imleci hareket eder; tıklama OK'dir. TV imleci yalnızca **tarayıcı** gibi web ekranlarında gösterir, canlı yayında ve menülerde göstermez (telefon uygulamasında da böyle).
 - 🔎 **Hızlı arama (⌘K):** Kanal adı, numarası ya da **yayındaki program adıyla** ara ("kuruluş" yazınca dizinin olduğu kanal çıkar); ↑↓ ile seç, ↩ ile geç.
 - 🧷 **Menü çubuğunda kanal:** Simgenin yanında kanal adı ya da "kanal · program" yazar (Ayarlar'dan seçilir).
 - ⌨️ **Her yerde çalışan kısayollar** (panel kapalıyken de; Ayarlar'dan kapatılabilir):
@@ -171,6 +170,24 @@ Connection: close
 
 </details>
 
+### TV'de göster (HbbTV)
+
+TV'nin Vewd DIAL sunucusu (port **12345**) bir `HbbTV` uygulaması yayımlıyor (HbbTV 2.0 "companion screen"). Buraya bir uygulama tanımı (XML AIT) gönderilince TV, verilen adresteki web sayfasını tam ekran bir HbbTV uygulaması olarak açar:
+
+```http
+POST http://<tv>:12345/apps/HbbTV
+Content-Type: text/plain; charset=utf-8
+
+<mhp:ServiceDiscovery …><mhp:URLBase>http://<mac>:8765/</mhp:URLBase>…<mhp:applicationLocation>index.html</mhp:applicationLocation>…
+```
+
+- TV her açılışta bir **Evet/Hayır** onayı sorar ("Evet" seçili gelir) ve sayfayı ancak onaydan sonra indirir. Pilsiz 1,5 sn sonra OK gönderir, sayfa inmediyse 4,5 ve 8 sn'de yeniden dener. Sayfa açık kaldıkça yeni gönderimlerde tekrar sorulmaz.
+- Pilsiz Mac'te küçük bir sunucu (port **8765**) çalıştırır; TV'deki sayfa ~150–400 ms'de bir `/state` sorar, kareleri `/frame.jpg`'den, videoyu `/video.mp4`'ten (Range destekli) alır.
+- Tarayıcı Chrome 108 tabanlı Opera (Vewd OMI); sayfayı **katı XHTML** olarak okur: betikler `CDATA` içinde olmalı, yoksa sessizce çalışmaz.
+- Videoyu JavaScript ile eklemek ya da `play()` ile başlatmak TV'nin uygulamayı kapatmasına yol açar; video, `<video autoplay>` etiketinin doğrudan yazıldığı ayrı bir sayfada oynatılır.
+- TV'nin video çözücüsü 1920×1080 ile sınırlı: iPhone'un dikey videoları (720p ayarıyla 1280 px yükseklik) oynamaz; Pilsiz dikey videoları 540×960, yatayları 1280×720 H.264 MP4'e dönüştürür.
+- Ekran yansıtma ScreenCaptureKit ile saniyede ~6 kareye kadar JPEG gönderir (Pilsiz'in kendi paneli hariç tutulur).
+
 ### Komutlar, klavye ve imleç
 
 Aşağıdakiler, telefondaki *TV Smart Centre* uygulamasının trafiği mitmproxy ile kaydedilip [REA](https://github.com/morluto/rea) ile çözümlenerek bulundu. Hepsi aynı uç noktaya gider; komutlarda telefon uygulaması gibi `application_name: tv smart centre` başlığı gönderilir.
@@ -242,6 +259,10 @@ Sources/Pilsiz/
 ├── YouTube.swift        # YouTube linki ayrıştırma ve Lounge ile TV'de oynatma
 ├── Assistant.swift      # Pilsiz'e söyle: kurallar + cihaz içi model, eylemler
 ├── Voice.swift          # Türkçe cihaz içi konuşma tanıma ve ekranın üstündeki kapsül
+├── ShareServer.swift    # TV'deki HbbTV sayfası ve onun bağlandığı yerel sunucu (Range destekli)
+├── ScreenShare.swift    # Ekran yakalama, fotoğraf slaytı, video dönüştürme, onay
+├── ShareTab.swift       # TV'de göster sekmesi
+├── Remote.swift         # Kumanda sekmesi
 ├── Components.swift     # Tema ve ortak bileşenler
 └── Snapshot.swift       # (yalnızca DEBUG) sekmeleri PNG'ye çizer
 Resources/
@@ -259,11 +280,11 @@ swift build && PILSIZ_SNAPSHOT=/tmp/snap .build/debug/Pilsiz
 ## Bilinen sınırlamalar ve yol haritası
 
 - [x] Kanal listesini TV'den **otomatik çekmek**
-- [x] Klavye ile metin girişi, touchpad/imleç
+- [x] Klavye ile metin girişi, touchpad/imleç (protokol çözüldü; arayüzde şu an yok)
+- [x] Mac ekranını, fotoğrafları ve videoları TV'de göstermek (HbbTV)
 - [ ] Ses seviyesini TV'den **okumak**: telefon uygulaması da yalnızca +/− gönderiyor; protokolde okuma bulunmadı
 - [ ] Şu anki kanalı TV'den okumak (telefondan değiştirilen kanalı bilmek)
 - [ ] Parlaklık, kontrast gibi görüntü ayarları
-- [ ] Mac ekranını TV'ye yansıtma
 - [ ] Girişleri doğrudan seçmek (şu an kaynak menüsü açılıp sıra numarası gönderiliyor)
 
 Kalanlar için sıradaki adım: SmartCenter'ın Android APK'sını REA ile statik olarak incelemek.

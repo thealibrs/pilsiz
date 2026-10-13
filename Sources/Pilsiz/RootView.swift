@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum Tab: String, CaseIterable, Identifiable {
-    case now, remote, channels, apps, activity, settings
+    case now, remote, channels, apps, share, activity, settings
 
     var id: String { rawValue }
 
@@ -12,6 +12,7 @@ enum Tab: String, CaseIterable, Identifiable {
         case .remote: "dot.circle.and.hand.point.up.left.fill"
         case .channels: "list.number"
         case .apps: "square.grid.2x2"
+        case .share: "rectangle.on.rectangle.angled"
         case .activity: "chart.bar.xaxis"
         case .settings: "slider.horizontal.3"
         }
@@ -23,6 +24,7 @@ enum Tab: String, CaseIterable, Identifiable {
         case .remote: "Kumanda"
         case .channels: "Kanallar"
         case .apps: "Uygulamalar"
+        case .share: "TV'de göster"
         case .activity: "Aktivite"
         case .settings: "Ayarlar"
         }
@@ -54,7 +56,7 @@ struct RootView: View {
             if Self.scrolls {
                 ScrollView { paddedContent }
                     .scrollIndicators(.never)
-                    .frame(height: 470)
+                    .frame(height: 560)
             } else {
                 paddedContent
             }
@@ -68,12 +70,12 @@ struct RootView: View {
         .focusEffectDisabled()
         .focused($focused)
         .onKeyPress(phases: [.down, .repeat], action: handle)
-        .onDrop(of: [.url, .plainText], isTargeted: $dropTargeted, perform: dropYouTube)
+        .onDrop(of: [.fileURL, .url, .plainText], isTargeted: $dropTargeted, perform: handleDrop)
         .overlay {
             if dropTargeted {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                    .overlay(Label("TV'de YouTube'da oynat", systemImage: "play.rectangle.fill")
+                    .overlay(Label("TV'de göster", systemImage: "rectangle.on.rectangle.angled")
                         .font(.system(size: 13, weight: .semibold))
                         .padding(10)
                         .background(Capsule().fill(Theme.background)))
@@ -87,22 +89,39 @@ struct RootView: View {
         }
     }
 
-    /// Panele bırakılan YouTube linkini TV'de oynatır.
-    private func dropYouTube(_ providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
-        let handle: @Sendable (String?) -> Void = { text in
-            guard let text, let video = YouTubeVideo(link: text) else { return }
-            Task { @MainActor in
+    /// Panele bırakılanlar: fotoğraf/video dosyaları TV'de gösterilir, YouTube linki TV'de oynatılır.
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        Task { @MainActor in
+            var links: [String] = []
+            var files: [URL] = []
+            for provider in providers {
+                if provider.canLoadObject(ofClass: URL.self), let url = await Self.loadURL(provider) {
+                    if url.isFileURL { files.append(url) } else { links.append(url.absoluteString) }
+                } else if let text = await Self.loadText(provider) {
+                    links.append(text)
+                }
+            }
+            if !files.isEmpty {
+                tv.share.share(files, tv: tv)
+                tab = .share
+            } else if let video = links.lazy.compactMap(YouTubeVideo.init(link:)).first {
                 tv.playYouTube(video)
                 tab = .apps
             }
         }
-        if provider.canLoadObject(ofClass: URL.self) {
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in handle(url?.absoluteString) }
-        } else {
-            _ = provider.loadObject(ofClass: NSString.self) { text, _ in handle(text as? String) }
-        }
         return true
+    }
+
+    private static func loadURL(_ provider: NSItemProvider) async -> URL? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: url) }
+        }
+    }
+
+    private static func loadText(_ provider: NSItemProvider) async -> String? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadObject(ofClass: NSString.self) { text, _ in continuation.resume(returning: text as? String) }
+        }
     }
 
     private var paddedContent: some View {
@@ -150,6 +169,7 @@ struct RootView: View {
         case .remote: RemoteTab()
         case .channels: ChannelsTab()
         case .apps: AppsTab()
+        case .share: ShareTab()
         case .activity: ActivityTab()
         case .settings: SettingsTab()
         }

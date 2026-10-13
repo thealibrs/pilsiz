@@ -188,6 +188,18 @@ Content-Type: text/plain; charset=utf-8
 - TV'nin video çözücüsü 1920×1080 ile sınırlı: iPhone'un dikey videoları (720p ayarıyla 1280 px yükseklik) oynamaz; Pilsiz dikey videoları 540×960, yatayları 1280×720 H.264 MP4'e dönüştürür.
 - Ekran yansıtma ScreenCaptureKit ile saniyede ~6 kareye kadar JPEG gönderir (Pilsiz'in kendi paneli hariç tutulur).
 
+### Pano
+
+Pano, aynı HbbTV ekranında açılan bir ana ekran: uygulamalar, YouTube kısayolları, haberler, Ankara havası ve piyasa. *TV'de göster* sekmesindeki **Panoyu TV'de aç** düğmesiyle açılır.
+
+- Veriyi Mac toplar (Gazete Oksijen RSS'i, Open-Meteo, Yahoo Finance, YouTube küçük resimleri) ve `/pano.json` ile `/pano/img/…` üzerinden verir; TV'nin tarayıcısı dışarıya istek atmaz.
+- Ağdan gönderilen kumanda tuşları HbbTV sayfasına ulaşmadığı için gezinme Mac'ten yapılır: pano açıkken Pilsiz'in ok, OK ve geri tuşları TV'ye değil sayfaya gider. Sayfa `/pano/poll` isteğini açık tutar (uzun yoklama), tuş gelince istek hemen yanıtlanır.
+- Pano kartındaki dokunmatik alan trackpad'i kumandaya çevirir: iki parmakla kaydırmak odağı o yöne taşır, iki parmakla dokunmak ya da tıklamak seçer.
+- Seçilen kart `/pano/act` ile Mac'e bildirilir. Mac önce panoyu kapatır, ardından uygulamayı açar ya da videoyu YouTube'a gönderir.
+- Kısayol olarak kanal linki verilirse (`youtube.com/@kanal`) o kanalın o anki canlı yayını açılır.
+- Üç dakika tuşa basılmazsa pano saat ve dönen haber başlığından oluşan bekleme ekranına geçer.
+- Geliştirirken `PILSIZ_PANO=1 PILSIZ_PORT=8791 swift run` panoyu TV'ye dokunmadan sunar; `http://localhost:8791/` tarayıcıda açılır, klavyenin ok tuşlarıyla gezilir.
+
 ### Komutlar, klavye ve imleç
 
 Aşağıdakiler, telefondaki *TV Smart Centre* uygulamasının trafiği mitmproxy ile kaydedilip [REA](https://github.com/morluto/rea) ile çözümlenerek bulundu. Hepsi aynı uç noktaya gider; komutlarda telefon uygulaması gibi `application_name: tv smart centre` başlığı gönderilir.
@@ -261,6 +273,9 @@ Sources/Pilsiz/
 ├── Voice.swift          # Türkçe cihaz içi konuşma tanıma ve ekranın üstündeki kapsül
 ├── ShareServer.swift    # TV'deki HbbTV sayfası ve onun bağlandığı yerel sunucu (Range destekli)
 ├── ScreenShare.swift    # Ekran yakalama, fotoğraf slaytı, video dönüştürme, onay
+├── Dashboard.swift      # Pano: haber, hava, piyasa ve kısayol verisi, seçilen kartın işlenmesi
+├── DashboardPage.swift  # Panonun TV'de açılan sayfası
+├── PanoTouchpad.swift   # Panoyu trackpad kaydırmalarıyla gezdiren alan
 ├── ShareTab.swift       # TV'de göster sekmesi
 ├── Remote.swift         # Kumanda sekmesi
 ├── Components.swift     # Tema ve ortak bileşenler

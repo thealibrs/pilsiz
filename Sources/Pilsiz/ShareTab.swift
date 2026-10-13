@@ -11,6 +11,8 @@ struct ShareTab: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            PanoCard()
+
             Card("Mac ekranın, büyük ekranda", icon: "display") {
                 Text("Mac ekranını TV'ye yansıtır. Sunum, belge ve web sayfaları için uygundur; saniyede birkaç kare olduğu için film izlemeye uygun değildir.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
@@ -117,5 +119,67 @@ struct ShareTab: View {
         panel.message = "TV'de gösterilecek fotoğrafları ya da bir videoyu seç"
         NSApp.activate()
         if panel.runModal() == .OK { share.share(panel.urls, tv: tv) }
+    }
+}
+
+/// Pano: TV'de açılan ana ekran. Ok tuşları pano açıkken TV'ye değil panoya gider.
+private struct PanoCard: View {
+    @Environment(TVController.self) private var tv
+    @State private var editing = false
+
+    private var pano: Dashboard { tv.dashboard }
+
+    var body: some View {
+        Card("Pano", icon: "square.grid.2x2") {
+            Text("Uygulamalar, YouTube kısayolları, haberler, hava ve piyasa tek ekranda. Açıkken klavyenin ok tuşları, Kumanda sekmesi ve aşağıdaki dokunmatik alan panoyu gezdirir.")
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if pano.isOpen(on: tv.share) {
+                HStack {
+                    Label("Pano TV'de açık", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(Theme.accent)
+                    Spacer()
+                    Button("Geri") { tv.press(.back) }
+                    Button("Kapat") { pano.close(tv: tv) }
+                }
+                PanoTouchpad { tv.press($0) }
+                    .frame(height: 130)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.key))
+                    .overlay {
+                        VStack(spacing: 4) {
+                            Image(systemName: "hand.draw").font(.system(size: 20)).foregroundStyle(.secondary)
+                            Text("İki parmakla kaydır: gez").font(.system(size: 11.5, weight: .medium))
+                            Text("İki parmakla dokun ya da tıkla: seç").font(.system(size: 10.5)).foregroundStyle(.secondary)
+                        }
+                        .allowsHitTesting(false)
+                    }
+            } else {
+                Button { pano.open(tv: tv) } label: {
+                    Label(pano.status == .opening ? "Açılıyor…" : "Panoyu TV'de aç", systemImage: "tv").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!tv.isOnline || pano.status == .opening)
+            }
+            if case .failed(let message) = pano.status {
+                Text(message).font(.system(size: 11)).foregroundStyle(Theme.accent)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            DisclosureGroup("YouTube kısayolları", isExpanded: $editing) {
+                VStack(spacing: 6) {
+                    ForEach(Bindable(pano).shortcuts) { $shortcut in
+                        HStack(spacing: 6) {
+                            TextField("Ad", text: $shortcut.name).frame(width: 96)
+                            TextField("Video ya da kanal linki", text: $shortcut.link)
+                        }
+                        .textFieldStyle(.roundedBorder)
+                    }
+                    Text("Kanal linki verirsen (youtube.com/@kanal) o kanalın canlı yayını açılır.")
+                        .font(.system(size: 10)).foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.top, 6)
+            }
+            .font(.system(size: 11.5))
+        }
     }
 }

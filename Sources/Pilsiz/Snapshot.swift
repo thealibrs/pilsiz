@@ -29,6 +29,18 @@ enum Snapshot {
     }
 
     static func runIfRequested(_ tv: TVController) -> Bool {
+        // PILSIZ_PANO=1: panoyu TV'ye dokunmadan sunar; PILSIZ_PORT ile verilen porttan tarayıcıda denenir.
+        if ProcessInfo.processInfo.environment["PILSIZ_PANO"] != nil {
+            Task {
+                do { try tv.share.debugServer.start() } catch { print("sunucu başlamadı:", error); exit(1) }
+                tv.share.debugServer.setMode(.dashboard)
+                while true {
+                    await tv.dashboard.refresh(tv: tv)
+                    try? await Task.sleep(for: .seconds(30))
+                }
+            }
+            return true
+        }
         // PILSIZ_MJPEG_TEST=1: TV'ye 25 sn boyunca saniyede 15 kare yapay sayaç gönderir, ulaşan kare/sn'yi yazar.
         if ProcessInfo.processInfo.environment["PILSIZ_MJPEG_TEST"] != nil {
             Task {

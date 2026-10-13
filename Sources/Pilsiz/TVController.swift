@@ -68,6 +68,7 @@ final class TVController {
     let youtube = YouTubeCaster()
     let assistant = Assistant()
     let share = ScreenShare()
+    let dashboard = Dashboard()
     private let voice = VoiceListener()
     var isListening: Bool { assistant.phase == .listening }
 
@@ -107,6 +108,8 @@ final class TVController {
     // MARK: - Komutlar
 
     func press(_ key: RemoteKey) {
+        // Pano açıkken ok, OK ve geri tuşları TV'ye değil panoya gider.
+        if dashboard.handle(key, tv: self) { return }
         switch key {
         case .power: power()
         case .volumeUp: setVolume(volume + 1)

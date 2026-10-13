@@ -292,7 +292,8 @@ struct RootView: View {
             panel.paletteOpen.toggle()
             return .handled
         }
-        guard !panel.paletteOpen, tab == .now || tab == .remote else { return .ignored }
+        // Pano açıkken ok tuşları her sekmede panoyu gezdirir.
+        guard !panel.paletteOpen, tab == .now || tab == .remote || tv.dashboard.isOpen(on: tv.share) else { return .ignored }
         // Bir yazı alanı düzenleniyorsa (ör. "TV'deki değer") tuşlar ona gitsin.
         if NSApp.keyWindow?.firstResponder is NSText { return .ignored }
         let key: RemoteKey? = switch press.key {

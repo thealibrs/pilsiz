@@ -22,7 +22,7 @@ final class ScreenShare {
     private(set) var framesPerSecond = 0.0
     var slideshow = true
 
-    private let server = ShareServer()
+    let server = ShareServer()
     #if DEBUG
     var debugServer: ShareServer { server }
     func debugConnect(tv: TVController) async -> Bool { await connect(tv: tv) }
@@ -136,7 +136,8 @@ final class ScreenShare {
         Task { [server] in
             // Sayfanın "kapan" komutunu alması için kısa bir süre.
             try? await Task.sleep(for: .seconds(2))
-            server.stop()
+            // Bu arada yeni bir gönderim ya da pano başladıysa sunucu açık kalır.
+            if server.currentMode == .close { server.stop() }
         }
     }
 
@@ -178,14 +179,21 @@ final class ScreenShare {
     /// Sunucuyu başlatır ve TV'de Pilsiz Ekranı'nı açar. Sayfa zaten bağlıysa yeniden açmaz.
     /// TV her açılışta "Evet/Hayır" onayı sorar ve "Evet" seçili gelir: sayfa bağlanmazsa OK gönderilir.
     private func connect(tv: TVController, keepActivity: Bool = false) async -> Bool {
-        do { try server.start() } catch {
-            activity = .failed("Yerel sunucu başlatılamadı: \(error.localizedDescription)")
+        if let failure = await openScreen(tv: tv) {
+            activity = .failed(failure)
             return false
         }
-        if server.isConnected { return true }
+        return true
+    }
+
+    /// `connect`'in durum yazmayan hâli (pano da kullanır): başarısız olursa nedenini döndürür.
+    func openScreen(tv: TVController) async -> String? {
+        do { try server.start() } catch {
+            return "Yerel sunucu başlatılamadı: \(error.localizedDescription)"
+        }
+        if server.isConnected { return nil }
         guard let address = Self.localAddress(near: tv.host) else {
-            activity = .failed("Mac'in yerel ağ adresi bulunamadı.")
-            return false
+            return "Mac'in yerel ağ adresi bulunamadı."
         }
         server.resetPageFetch()
         launchFailure = nil
@@ -204,18 +212,16 @@ final class ScreenShare {
         var pending: [TimeInterval] = [1.5, 4.5, 8]
         for _ in 0..<75 {
             try? await Task.sleep(for: .milliseconds(200))
-            if server.isConnected { return true }
+            if server.isConnected { return nil }
             if let launchFailure {
-                activity = .failed("TV'de Pilsiz Ekranı açılamadı: \(launchFailure)")
-                return false
+                return "TV'de Pilsiz Ekranı açılamadı: \(launchFailure)"
             }
             if server.pageFetchedAt == nil, let next = pending.first, Date().timeIntervalSince(started) >= next {
                 pending.removeFirst()
                 tv.send(code: RemoteKey.ok.rawValue)
             }
         }
-        activity = .failed("TV'deki Pilsiz Ekranı bağlanmadı. TV'de onay sorusu açıksa “Evet”i seç.")
-        return false
+        return "TV'deki Pilsiz Ekranı bağlanmadı. TV'de onay sorusu açıksa “Evet”i seç."
     }
 
     /// TV ile aynı ağdaki Mac adresi.

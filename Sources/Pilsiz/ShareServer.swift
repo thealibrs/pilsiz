@@ -8,16 +8,24 @@ import Network
 /// - `GET /state`       `{"mode":…, "frame":n, "video":n}` (sayfa ~300 ms'de bir sorar)
 /// - `GET /frame.jpg`   son kare (ekran yansıtma ya da fotoğraf)
 /// - `GET /video.mp4`   gönderilen video, Range destekli
+/// - `GET /pano.html`   pano sayfası; verisi `/pano.json`, görselleri `/pano/img/<ad>`
+/// - `GET /pano/poll`   uzun yoklama: kumanda tuşları, veri sürümü ve mod değişimi
+/// - `GET /pano/act`    panoda seçilen kartı Mac'e bildirir
 ///
 /// Tüm durum tek bir seri kuyrukta tutulur.
 final class ShareServer: @unchecked Sendable {
-    enum Mode: String, Sendable { case idle, frames, video, close }
+    enum Mode: String, Sendable { case idle, frames, video, dashboard, close }
 
+    #if DEBUG
+    /// Kurulu Pilsiz aynı portu tutarken geliştirme derlemesini denemek için PILSIZ_PORT ile değiştirilebilir.
+    static let port = ProcessInfo.processInfo.environment["PILSIZ_PORT"].flatMap(UInt16.init) ?? 8765
+    #else
     static let port: UInt16 = 8765
+    #endif
 
     private let queue = DispatchQueue(label: "pilsiz.share")
     private var listener: NWListener?
-    private var mode: Mode = .idle
+    private var mode: Mode = .idle { didSet { if mode != oldValue { flushWaiters() } } }
     private var frame: Data?
     private var frameVersion = 0
     private var videoURL: URL?
@@ -42,10 +50,33 @@ final class ShareServer: @unchecked Sendable {
     private static let boundary = "pilsizframe"
     private var pageFetched: Date?
 
+    // Pano: sayfa tek bir isteği açık tutar (uzun yoklama); tuş gelince ya da veri değişince hemen yanıtlanır.
+    private final class Waiter: @unchecked Sendable {  // yalnızca sunucu kuyruğunda kullanılır
+        let connection: NWConnection
+        let seq: Int
+        let dataVersion: Int
+        init(_ connection: NWConnection, seq: Int, dataVersion: Int) {
+            self.connection = connection
+            self.seq = seq
+            self.dataVersion = dataVersion
+        }
+    }
+    private var waiters: [ObjectIdentifier: Waiter] = [:]
+    private var panoData = Data("{}".utf8)
+    private var panoVersion = 0
+    private var panoImages: [String: Data] = [:]
+    private var panoKeys: [(seq: Int, name: String)] = []
+    private var panoSeq = 0
+    private var panoAction: (@Sendable (String) -> Void)?
+
+    var currentMode: Mode { queue.sync { mode } }
+
     var isRunning: Bool { queue.sync { listener != nil } }
 
-    /// TV sayfası son 2 saniyede durum sorduysa bağlıdır.
-    var isConnected: Bool { queue.sync { lastPoll.map { Date().timeIntervalSince($0) < 2 } ?? false } }
+    /// TV sayfası son 2 saniyede durum sorduysa ya da pano yoklaması açık bekliyorsa bağlıdır.
+    var isConnected: Bool {
+        queue.sync { !waiters.isEmpty || (lastPoll.map { Date().timeIntervalSince($0) < 2 } ?? false) }
+    }
 
     /// TV sayfayı onay sorusunu göstermeden hemen önce indirir; bu an onay ekranının geldiğini gösterir.
     var pageFetchedAt: Date? { queue.sync { pageFetched } }
@@ -68,6 +99,8 @@ final class ShareServer: @unchecked Sendable {
         queue.sync {
             for streamer in streamers.values { streamer.connection.cancel() }
             streamers = [:]
+            for waiter in waiters.values { waiter.connection.cancel() }
+            waiters = [:]
             listener?.cancel()
             listener = nil
             lastPoll = nil
@@ -131,6 +164,87 @@ final class ShareServer: @unchecked Sendable {
         queue.async { self.mode = mode }
     }
 
+    // MARK: - Pano
+
+    /// Pano verisini ve görsellerini değiştirir; içerik aynıysa sayfa yeniden çizilmez.
+    func setPano(json: Data, images: [String: Data]) {
+        queue.async {
+            guard json != self.panoData || images != self.panoImages else { return }
+            self.panoData = json
+            self.panoImages = images
+            self.panoVersion += 1
+            self.flushWaiters()
+        }
+    }
+
+    /// Panoya bir kumanda tuşu iletir: up, down, left, right, ok, back.
+    func pushPanoKey(_ name: String) {
+        queue.async {
+            self.panoSeq += 1
+            self.panoKeys.append((self.panoSeq, name))
+            if self.panoKeys.count > 30 { self.panoKeys.removeFirst(self.panoKeys.count - 30) }
+            self.flushWaiters()
+        }
+    }
+
+    func setPanoAction(_ handler: @escaping @Sendable (String) -> Void) {
+        queue.async { self.panoAction = handler }
+    }
+
+    private func poll(seq: Int, dataVersion: Int, on connection: NWConnection) {
+        lastPoll = Date()
+        // İlk yoklama (ya da sunucu yeniden başladıysa) hemen yanıtlanır; eski tuşlar yeniden oynatılmaz.
+        guard seq >= 0, seq <= panoSeq else { return replyPoll(keys: [], on: connection) }
+        let waiter = Waiter(connection, seq: seq, dataVersion: dataVersion)
+        if hasNews(for: waiter) { return replyPoll(to: waiter) }
+        let id = ObjectIdentifier(waiter)
+        waiters[id] = waiter
+        connection.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .failed, .cancelled: self?.waiters[id] = nil
+            default: break
+            }
+        }
+        queue.asyncAfter(deadline: .now() + 8) { [weak self] in
+            guard let self, let waiter = self.waiters.removeValue(forKey: id) else { return }
+            self.replyPoll(to: waiter)
+        }
+    }
+
+    private func hasNews(for waiter: Waiter) -> Bool {
+        mode != .dashboard || waiter.dataVersion != panoVersion || waiter.seq < panoSeq
+    }
+
+    private func flushWaiters() {
+        for (id, waiter) in waiters where hasNews(for: waiter) {
+            waiters[id] = nil
+            replyPoll(to: waiter)
+        }
+    }
+
+    private func replyPoll(to waiter: Waiter) {
+        replyPoll(keys: panoKeys.filter { $0.seq > waiter.seq }.map(\.name), on: waiter.connection)
+    }
+
+    private func replyPoll(keys: [String], on connection: NWConnection) {
+        lastPoll = Date()
+        let list = keys.map { "\"\($0)\"" }.joined(separator: ",")
+        let now = Int(Date().timeIntervalSince1970 * 1000)
+        let json = #"{"seq":\#(panoSeq),"mode":"\#(mode.rawValue)","data":\#(panoVersion),"now":\#(now),"keys":[\#(list)]}"#
+        send(status: "200 OK", type: "application/json", body: Data(json.utf8), on: connection)
+    }
+
+    /// Pano fontları uygulama paketinden okunur; yalnızca bilinen dosya adları kabul edilir.
+    private static func font(named file: String) -> Data? {
+        let names = ["figtree-latin", "figtree-latin-ext", "bricolage-latin", "bricolage-latin-ext"]
+        guard file.hasSuffix(".woff2"), names.contains(String(file.dropLast(6))) else { return nil }
+        var url = Bundle.main.url(forResource: String(file.dropLast(6)), withExtension: "woff2", subdirectory: "Fonts")
+        #if DEBUG
+        if url == nil { url = URL(fileURLWithPath: "Resources/Fonts/\(file)") }
+        #endif
+        return url.flatMap { try? Data(contentsOf: $0) }
+    }
+
     // MARK: - HTTP
 
     private func accept(_ connection: NWConnection) {
@@ -156,16 +270,53 @@ final class ShareServer: @unchecked Sendable {
     private func respond(to head: String, on connection: NWConnection) {
         let lines = head.components(separatedBy: "\r\n")
         let parts = lines.first?.split(separator: " ") ?? []
-        let path = parts.count > 1 ? String(parts[1].split(separator: "?").first ?? "") : "/"
+        let target = parts.count > 1 ? parts[1].split(separator: "?", maxSplits: 1) : []
+        let path = target.first.map(String.init) ?? "/"
+        var query: [String: String] = [:]
+        for pair in (target.count > 1 ? target[1] : "").split(separator: "&") {
+            let item = pair.split(separator: "=", maxSplits: 1)
+            if item.count == 2 { query[String(item[0])] = String(item[1]).removingPercentEncoding }
+        }
         let range = lines.first { $0.lowercased().hasPrefix("range:") }
+        // TV sayfaları HbbTV türüyle ister; Mac'teki tarayıcıda denerken (localhost) aynı katı XHTML okuması için standart tür.
+        let local = lines.contains { $0.lowercased().hasPrefix("host: localhost") || $0.lowercased().hasPrefix("host: 127.0.0.1") }
+        let pageType = (local ? "application/xhtml+xml" : "application/vnd.hbbtv.xhtml+xml") + "; charset=UTF-8"
 
         switch path {
         case "/", "/index.html":
             pageFetched = Date()
-            send(status: "200 OK", type: "application/vnd.hbbtv.xhtml+xml; charset=UTF-8", body: Data(Self.page.utf8), on: connection)
+            // Pano açılırken ara sayfa görünmesin diye doğrudan pano verilir.
+            send(status: "200 OK", type: pageType, body: Data((mode == .dashboard ? Self.panoPage : Self.page).utf8), on: connection)
         case "/video.html":
-            send(status: "200 OK", type: "application/vnd.hbbtv.xhtml+xml; charset=UTF-8",
-                 body: Data(Self.videoPage(version: videoVersion).utf8), on: connection)
+            send(status: "200 OK", type: pageType, body: Data(Self.videoPage(version: videoVersion).utf8), on: connection)
+        case "/pano.html":
+            send(status: "200 OK", type: pageType, body: Data(Self.panoPage.utf8), on: connection)
+        case "/pano.json":
+            send(status: "200 OK", type: "application/json; charset=UTF-8", body: panoData, on: connection)
+        case "/pano/poll":
+            poll(seq: query["seq"].flatMap(Int.init) ?? -1, dataVersion: query["data"].flatMap(Int.init) ?? -1, on: connection)
+        case "/pano/act":
+            if let id = query["id"] { panoAction?(id) }
+            send(status: "204 No Content", type: "text/plain", body: Data(), on: connection)
+        #if DEBUG
+        case "/pano/key":
+            // Geliştirme: TV ve Pilsiz paneli olmadan tuş göndermek için (curl ile).
+            if let name = query["k"] { pushPanoKey(name) }
+            send(status: "204 No Content", type: "text/plain", body: Data(), on: connection)
+        #endif
+        case _ where path.hasPrefix("/pano/font/"):
+            if let font = Self.font(named: String(path.dropFirst("/pano/font/".count))) {
+                send(status: "200 OK", type: "font/woff2", body: font, on: connection)
+            } else {
+                send(status: "404 Not Found", type: "text/plain", body: Data(), on: connection)
+            }
+        case _ where path.hasPrefix("/pano/img/"):
+            let name = String(path.dropFirst("/pano/img/".count))
+            if let image = panoImages[name] {
+                send(status: "200 OK", type: name.hasSuffix(".png") ? "image/png" : "image/jpeg", body: image, on: connection)
+            } else {
+                send(status: "404 Not Found", type: "text/plain", body: Data(), on: connection)
+            }
         case "/ended":
             // Video bitti: aynı video tekrar açılmasın.
             if mode == .video { mode = .idle }
@@ -292,6 +443,7 @@ final class ShareServer: @unchecked Sendable {
       function apply(state) {
         mode = state.mode;
         if (mode === 'close') { try { app.destroyApplication(); } catch (e) {} return; }
+        if (mode === 'dashboard') { stopStream(); location.href = '/pano.html'; return; }
         if (mode === 'frames') { startStream(); }
         if (mode === 'video' && state.video !== shownVideo) { stopStream(); location.href = '/video.html'; return; }
         if (mode === 'idle') { stopStream(); show('idle'); }

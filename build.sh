@@ -13,6 +13,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$(swift build -c release --show-bin-path)/Pilsiz" "$APP/Contents/MacOS/"
 cp Resources/Info.plist "$APP/Contents/"
 cp -R Resources/Logos "$APP/Contents/Resources/"
+cp -R Resources/Fonts "$APP/Contents/Resources/"
 cp Resources/tv.png "$APP/Contents/Resources/"
 # Uygulama simgesi: macOS 26, asset catalog'dan derlenmemiş simgeleri gri bir çerçeveye koyar.
 xcrun actool Resources/Assets.xcassets --compile "$APP/Contents/Resources" --platform macosx \

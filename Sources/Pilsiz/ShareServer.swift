@@ -23,6 +23,23 @@ final class ShareServer: @unchecked Sendable {
     private var videoURL: URL?
     private var videoVersion = 0
     private var lastPoll: Date?
+
+    /// MJPEG akışına bağlı TV'ler: tek kalıcı bağlantı, her yeni kare hemen itilir.
+    /// Bir kare henüz gönderilirken gelen ara kareler atlanır; hep en yenisi gider, gecikme birikmez.
+    private final class Streamer: @unchecked Sendable {  // yalnızca sunucu kuyruğunda kullanılır
+        let connection: NWConnection
+        var sending = false
+        var sentVersion = -1
+        init(_ connection: NWConnection) { self.connection = connection }
+    }
+    private var streamers: [ObjectIdentifier: Streamer] = [:]
+    private var delivered = 0
+
+    /// Son çağrıdan bu yana TV'ye ulaştırılan kare sayısı (panelde kare/sn için).
+    func takeDeliveredCount() -> Int {
+        queue.sync { defer { delivered = 0 }; return delivered }
+    }
+    private static let boundary = "pilsizframe"
     private var pageFetched: Date?
 
     var isRunning: Bool { queue.sync { listener != nil } }
@@ -49,6 +66,8 @@ final class ShareServer: @unchecked Sendable {
 
     func stop() {
         queue.sync {
+            for streamer in streamers.values { streamer.connection.cancel() }
+            streamers = [:]
             listener?.cancel()
             listener = nil
             lastPoll = nil
@@ -60,7 +79,44 @@ final class ShareServer: @unchecked Sendable {
             self.frame = jpeg
             self.frameVersion += 1
             self.mode = .frames
+            for streamer in self.streamers.values { self.push(to: streamer) }
         }
+    }
+
+    /// Yayıncıya en yeni kareyi gönderir; gönderim sürerken yeni kare gelirse bitince en yenisi gider.
+    private func push(to streamer: Streamer) {
+        guard !streamer.sending, let frame, streamer.sentVersion != frameVersion else { return }
+        streamer.sending = true
+        streamer.sentVersion = frameVersion
+        let part = Data("--\(Self.boundary)\r\nContent-Type: image/jpeg\r\nContent-Length: \(frame.count)\r\n\r\n".utf8)
+            + frame + Data("\r\n".utf8)
+        streamer.connection.send(content: part, completion: .contentProcessed { [weak self] error in
+            guard let self else { return }
+            streamer.sending = false
+            if error == nil { self.delivered += 1 }
+            if error != nil {
+                self.streamers[ObjectIdentifier(streamer)] = nil
+                streamer.connection.cancel()
+            } else {
+                self.push(to: streamer)
+            }
+        })
+    }
+
+    private func startStream(on connection: NWConnection) {
+        let streamer = Streamer(connection)
+        streamers[ObjectIdentifier(streamer)] = streamer
+        connection.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .failed, .cancelled: self?.streamers[ObjectIdentifier(streamer)] = nil
+            default: break
+            }
+        }
+        let head = "HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace; boundary=\(Self.boundary)\r\n"
+            + "Cache-Control: no-store\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
+        connection.send(content: Data(head.utf8), completion: .contentProcessed { [weak self] _ in
+            self?.push(to: streamer)
+        })
     }
 
     func setVideo(_ url: URL) {
@@ -118,6 +174,8 @@ final class ShareServer: @unchecked Sendable {
             lastPoll = Date()
             let json = #"{"mode":"\#(mode.rawValue)","frame":\#(frameVersion),"video":\#(videoVersion)}"#
             send(status: "200 OK", type: "application/json", body: Data(json.utf8), on: connection)
+        case "/stream.mjpg":
+            startStream(on: connection)
         case "/frame.jpg":
             if let frame {
                 send(status: "200 OK", type: "image/jpeg", body: frame, on: connection)
@@ -210,7 +268,7 @@ final class ShareServer: @unchecked Sendable {
     <script type="text/javascript">//<![CDATA[
       var app = null;
       try { app = document.getElementById('appmgr').getOwnerApplication(document); app.show(); } catch (e) {}
-      var shownFrame = -1, wantedFrame = 0, loading = false, mode = 'idle';
+      var streaming = false, mode = 'idle';
       var seen = location.search.match(/seen=(\\d+)/);
       var shownVideo = seen ? parseInt(seen[1], 10) : 0;
       var img = document.getElementById('img');
@@ -218,26 +276,32 @@ final class ShareServer: @unchecked Sendable {
         document.getElementById('idle').style.display = id === 'idle' ? 'block' : 'none';
         img.style.display = id === 'img' ? 'block' : 'none';
       }
-      img.onload = function () { loading = false; show('img'); nextFrame(); };
-      img.onerror = function () { loading = false; };
-      function nextFrame() {
-        if (mode !== 'frames' || loading || shownFrame === wantedFrame) { return; }
-        loading = true; shownFrame = wantedFrame;
-        img.src = '/frame.jpg?v=' + wantedFrame;
+      // Kareler tek bir MJPEG bağlantısından gelir; koparsa bir sonraki yoklamada yeniden açılır.
+      img.onload = function () { show('img'); };
+      img.onerror = function () { streaming = false; };
+      function startStream() {
+        if (streaming) { return; }
+        streaming = true;
+        img.src = '/stream.mjpg?t=' + new Date().getTime();
+      }
+      function stopStream() {
+        if (!streaming) { return; }
+        streaming = false;
+        img.src = '';
       }
       function apply(state) {
         mode = state.mode;
         if (mode === 'close') { try { app.destroyApplication(); } catch (e) {} return; }
-        if (mode === 'frames') { wantedFrame = state.frame; nextFrame(); }
-        if (mode === 'video' && state.video !== shownVideo) { location.href = '/video.html'; return; }
-        if (mode === 'idle') { show('idle'); }
+        if (mode === 'frames') { startStream(); }
+        if (mode === 'video' && state.video !== shownVideo) { stopStream(); location.href = '/video.html'; return; }
+        if (mode === 'idle') { stopStream(); show('idle'); }
       }
       function poll() {
         var x = new XMLHttpRequest();
         x.onreadystatechange = function () {
           if (x.readyState !== 4) { return; }
           if (x.status === 200) { try { apply(JSON.parse(x.responseText)); } catch (e) {} }
-          setTimeout(poll, mode === 'frames' ? 150 : 400);
+          setTimeout(poll, 500);
         };
         x.open('GET', '/state?t=' + new Date().getTime());
         x.send(null);

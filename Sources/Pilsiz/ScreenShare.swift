@@ -23,7 +23,12 @@ final class ScreenShare {
     var slideshow = true
 
     private let server = ShareServer()
+    #if DEBUG
+    var debugServer: ShareServer { server }
+    func debugConnect(tv: TVController) async -> Bool { await connect(tv: tv) }
+    #endif
     private var captureTask: Task<Void, Never>?
+    private var mirror: MirrorCapture?
     private var slideshowTask: Task<Void, Never>?
     private var launchFailure: String?
     private var photos: [URL] = []
@@ -48,29 +53,18 @@ final class ScreenShare {
                 // Pilsiz'in kendi paneli yansıtmaya girmesin.
                 let ownApps = content.applications.filter { $0.processID == ProcessInfo.processInfo.processIdentifier }
                 let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
-                let configuration = SCStreamConfiguration()
-                configuration.width = 1280
-                configuration.height = Int(1280 * Double(display.height) / Double(max(display.width, 1)))
-                configuration.showsCursor = true
+                // Tam HD: TV paneli 1920×1080; kare hızı çözünürlükten bağımsız olarak ~15'te kalıyor.
+                let width = 1920
+                let height = Int(Double(width) * Double(display.height) / Double(max(display.width, 1)))
+                let capture = MirrorCapture(server: server)
+                try await capture.start(filter: filter, width: width, height: height)
+                mirror = capture
                 activity = .mirroring
+                // Panelde TV'ye gerçekten ulaşan kare hızı gösterilir.
                 captureTask = Task { [server] in
-                    var count = 0
-                    var windowStart = Date()
                     while !Task.isCancelled {
-                        let started = Date()
-                        if let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration),
-                           let jpeg = Self.jpeg(image, quality: 0.55) {
-                            server.setFrame(jpeg)
-                            count += 1
-                        }
-                        if Date().timeIntervalSince(windowStart) >= 2 {
-                            framesPerSecond = Double(count) / Date().timeIntervalSince(windowStart)
-                            count = 0
-                            windowStart = Date()
-                        }
-                        // En fazla ~6 kare/sn: TV'nin tarayıcısı ve ağ için yeterli.
-                        let wait = 0.16 - Date().timeIntervalSince(started)
-                        if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+                        try? await Task.sleep(for: .seconds(2))
+                        framesPerSecond = Double(server.takeDeliveredCount()) / 2
                     }
                 }
             } catch {
@@ -149,6 +143,10 @@ final class ScreenShare {
     private func stopMedia() {
         captureTask?.cancel()
         captureTask = nil
+        if let mirror {
+            self.mirror = nil
+            Task { await mirror.stop() }
+        }
         slideshowTask?.cancel()
         slideshowTask = nil
         framesPerSecond = 0
@@ -283,5 +281,52 @@ final class ScreenShare {
             if let error = session.error { throw error }
         }
         return output
+    }
+}
+
+/// Sürekli ekran yakalama (SCStream): yalnızca ekran değişince kare üretir, JPEG'e ekran kartında çevirir.
+/// Saniyede 15 kare: TV'nin tarayıcısı MJPEG akışını saniyede en fazla ~15 kez güncelliyor (14.10.2026'da
+/// 960×540, 1280×720 ve 1920×1080 ile ölçüldü; üçünde de 15), fazlası boşa iş.
+private final class MirrorCapture: NSObject, SCStreamOutput, @unchecked Sendable {
+    private let server: ShareServer
+    private let context = CIContext()
+    private let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+    private let queue = DispatchQueue(label: "pilsiz.capture", qos: .userInteractive)
+    private var stream: SCStream?
+
+    init(server: ShareServer) {
+        self.server = server
+    }
+
+    @MainActor func start(filter: SCContentFilter, width: Int, height: Int) async throws {
+        let configuration = SCStreamConfiguration()
+        configuration.width = width
+        configuration.height = height
+        configuration.minimumFrameInterval = CMTime(value: 1, timescale: 15)
+        configuration.queueDepth = 3
+        configuration.pixelFormat = kCVPixelFormatType_32BGRA
+        configuration.showsCursor = true
+        let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
+        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: queue)
+        try await stream.startCapture()
+        self.stream = stream
+    }
+
+    func stop() async {
+        try? await stream?.stopCapture()
+        stream = nil
+    }
+
+    func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        // Ekran değişmediyse macOS "boşta" kareler gönderir; onlar atlanır.
+        guard type == .screen, sampleBuffer.isValid,
+              let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
+              let raw = attachments.first?[.status] as? Int, SCFrameStatus(rawValue: raw) == .complete,
+              let pixels = sampleBuffer.imageBuffer
+        else { return }
+        let options = [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.55]
+        if let jpeg = context.jpegRepresentation(of: CIImage(cvPixelBuffer: pixels), colorSpace: colorSpace, options: options) {
+            server.setFrame(jpeg)
+        }
     }
 }

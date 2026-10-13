@@ -155,29 +155,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     // MARK: - Ayarlar ve kısayollar
 
-    private var hotKeysEnabled: Bool?
+    /// Kısayolların en son kaydedildiği hâl; yalnızca değiştiğinde yeniden kaydedilir.
+    private var hotKeyState: String?
 
     private func applySettings() {
         let enabled = UserDefaults.standard.object(forKey: "globalHotKeys") as? Bool ?? true
-        if enabled != hotKeysEnabled {
-            hotKeysEnabled = enabled
-            if enabled { registerHotKeys() } else { hotKeys.unregisterAll() }
+        let bindings = HotKeyBindings.current
+        let state = enabled ? "on|" + bindings.rawValue : "off"
+        if state != hotKeyState {
+            hotKeyState = state
+            if enabled { registerHotKeys(bindings) } else { hotKeys.unregisterAll() }
         }
         updateStatusItem()
     }
 
-    private func registerHotKeys() {
-        hotKeys.register([
-            .init(keyCode: kVK_UpArrow) { [tv] in tv.press(.volumeUp) },
-            .init(keyCode: kVK_DownArrow) { [tv] in tv.press(.volumeDown) },
-            .init(keyCode: kVK_RightArrow) { [tv] in tv.press(.channelUp) },
-            .init(keyCode: kVK_LeftArrow) { [tv] in tv.press(.channelDown) },
-            .init(keyCode: kVK_ANSI_M) { [tv] in tv.press(.mute) },
-            .init(keyCode: kVK_ANSI_K) { [weak self] in self?.showPalette() },
+    private func registerHotKeys(_ bindings: HotKeyBindings) {
+        hotKeys.register(HotKeyAction.allCases.compactMap { action -> GlobalHotKeys.HotKey? in
+            guard let combo = bindings[action] else { return nil }
+            return switch action {
+            case .volumeUp: .init(combo: combo) { [tv] in tv.press(.volumeUp) }
+            case .volumeDown: .init(combo: combo) { [tv] in tv.press(.volumeDown) }
+            case .channelUp: .init(combo: combo) { [tv] in tv.press(.channelUp) }
+            case .channelDown: .init(combo: combo) { [tv] in tv.press(.channelDown) }
+            case .mute: .init(combo: combo) { [tv] in tv.press(.mute) }
+            case .search: .init(combo: combo) { [weak self] in self?.showPalette() }
             // Basılı tut ve konuş; kısa basışta konuşma bitince kendiliğinden durur.
-            .init(keyCode: kVK_Space, action: { [weak self] in self?.talkPressed() },
-                  release: { [weak self] in self?.talkReleased() }),
-        ])
+            case .talk: .init(combo: combo, action: { [weak self] in self?.talkPressed() },
+                              release: { [weak self] in self?.talkReleased() })
+            }
+        })
     }
 
     // MARK: - Menü çubuğu

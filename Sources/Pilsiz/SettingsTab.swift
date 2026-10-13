@@ -5,7 +5,6 @@ struct SettingsTab: View {
     @Environment(TVController.self) private var tv
     @State private var customCode = ""
     @AppStorage("menuBarStyle") private var menuBarStyle = MenuBarStyle.channel.rawValue
-    @AppStorage("globalHotKeys") private var globalHotKeys = true
 
     var body: some View {
         @Bindable var tv = tv
@@ -32,19 +31,7 @@ struct SettingsTab: View {
                 .labelsHidden()
             }
 
-            Card("Klavye kısayolları", icon: "keyboard") {
-                Toggle("Her yerde çalışsın (panel kapalıyken de)", isOn: $globalHotKeys)
-                    .font(.system(size: 12))
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 5) {
-                    shortcut("⌃⌥⌘ ↑ / ↓", "Ses")
-                    shortcut("⌃⌥⌘ → / ←", "Kanal + / −")
-                    shortcut("⌃⌥⌘ M", "Sessiz")
-                    shortcut("⌃⌥⌘ K", "Kanal ara")
-                    shortcut("⌃⌥⌘ Space", "Pilsiz'e söyle (basılı tut ve konuş)")
-                    shortcut("⌘K", "Kanal ara (panel açıkken)")
-                }
-                .opacity(globalHotKeys ? 1 : 0.5)
-            }
+            ShortcutsCard()
 
             Card("Bağlantı", icon: "wifi") {
                 field("TV adı") { TextField("Salon", text: $tv.name).textFieldStyle(.roundedBorder) }
@@ -88,13 +75,6 @@ struct SettingsTab: View {
                     .font(.system(size: 12))
                 Button("Uygulamadan çık") { NSApp.terminate(nil) }
             }
-        }
-    }
-
-    private func shortcut(_ keys: String, _ title: String) -> some View {
-        GridRow {
-            Text(keys).font(.system(size: 11, weight: .medium, design: .rounded)).monospacedDigit()
-            Text(title).font(.system(size: 11)).foregroundStyle(.secondary)
         }
     }
 

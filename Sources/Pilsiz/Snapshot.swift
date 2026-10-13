@@ -6,7 +6,49 @@ import SwiftUI
 @MainActor
 enum Snapshot {
     /// Anlık görüntü modu başladıysa true; çağıran paket gerektiren kurulumları (bildirimler) atlamalı.
+    /// 1280×720 yapay kare: büyük sayaç ve kayan renkli şerit.
+    static func counterFrame(_ n: Int) -> Data? {
+        let width = Int(ProcessInfo.processInfo.environment["PILSIZ_MJPEG_WIDTH"] ?? "1280") ?? 1280
+        let height = width * 9 / 16
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        context.setFillColor(CGColor(red: 0.07, green: 0.07, blue: 0.08, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.setFillColor(CGColor(red: 0.93, green: 0.18, blue: 0.27, alpha: 1))
+        context.fill(CGRect(x: (n * width / 50) % width, y: height / 6, width: width / 8, height: height / 12))
+        let graphics = NSGraphicsContext(cgContext: context, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = graphics
+        (String(n) as NSString).draw(at: NSPoint(x: width * 3 / 8, y: height * 2 / 5), withAttributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: CGFloat(width) / 6, weight: .bold), .foregroundColor: NSColor.white,
+        ])
+        NSGraphicsContext.restoreGraphicsState()
+        guard let image = context.makeImage() else { return nil }
+        return NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: 0.5])
+    }
+
     static func runIfRequested(_ tv: TVController) -> Bool {
+        // PILSIZ_MJPEG_TEST=1: TV'ye 25 sn boyunca saniyede 15 kare yapay sayaç gönderir, ulaşan kare/sn'yi yazar.
+        if ProcessInfo.processInfo.environment["PILSIZ_MJPEG_TEST"] != nil {
+            Task {
+                for _ in 0..<20 where !tv.isOnline { try? await Task.sleep(for: .milliseconds(500)) }
+                guard await tv.share.debugConnect(tv: tv) else { print("bağlanamadı"); exit(1) }
+                let server = tv.share.debugServer
+                let start = Date()
+                var n = 0
+                while Date().timeIntervalSince(start) < 25 {
+                    n += 1
+                    if let jpeg = Self.counterFrame(n) { server.setFrame(jpeg) }
+                    if n % 30 == 0 { print("gönderilen \(n) · TV'ye ulaşan son 2 sn: \(server.takeDeliveredCount() / 2) kare/sn") }
+                    try? await Task.sleep(for: .milliseconds(Int(ProcessInfo.processInfo.environment["PILSIZ_MJPEG_MS"] ?? "66") ?? 66))
+                }
+                server.setMode(.close)
+                try? await Task.sleep(for: .seconds(2))
+                exit(0)
+            }
+            return true
+        }
         // PILSIZ_SHARE="dosya|dosya": TV'de göster akışını dener (otomatik onay dahil), 40 sn sonra kapatır.
         if let files = ProcessInfo.processInfo.environment["PILSIZ_SHARE"] {
             Task {

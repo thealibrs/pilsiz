@@ -65,6 +65,7 @@ final class TVController {
     let activity = ActivityStore()
     let epg = EPGStore()
     let reminders = ReminderStore()
+    let youtube = YouTubeCaster()
 
     var isOnline: Bool { status == .online }
     var inputs: [String] {
@@ -246,6 +247,13 @@ final class TVController {
             try await Task.sleep(for: .milliseconds(1200))
             try await SmartCenter.send(RemoteKey.digit(min(index + 1, 9)).rawValue, to: host)
         }
+    }
+
+    /// YouTube videosunu TV'deki YouTube uygulamasında oynatır.
+    func playYouTube(_ video: YouTubeVideo) {
+        guard !host.isEmpty else { lastError = "Önce TV'nin IP adresini ayarlayın"; return }
+        youtube.play(video, on: host)
+        runningApp = TVApp.all.first { $0.id == "youtube" }
     }
 
     func open(_ app: TVApp) {

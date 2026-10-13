@@ -23,7 +23,8 @@ struct CommandPalette: View {
     }
 
     var body: some View {
-        let results = search(at: Date())
+        let youtube = YouTubeVideo(link: query)
+        let results = youtube == nil ? search(at: Date()) : []
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -31,7 +32,9 @@ struct CommandPalette: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
                     .focused($focused)
-                    .onSubmit { choose(results) }
+                    .onSubmit {
+                        if let youtube { playYouTube(youtube) } else { choose(results) }
+                    }
                     .onKeyPress(.downArrow) { move(1, in: results); return .handled }
                     .onKeyPress(.upArrow) { move(-1, in: results); return .handled }
                     .onExitCommand { close() }
@@ -46,7 +49,21 @@ struct CommandPalette: View {
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.key))
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Theme.accent.opacity(0.5)))
 
-            if results.isEmpty {
+            if let youtube {
+                HStack(spacing: 10) {
+                    Image(systemName: "play.rectangle.fill").font(.system(size: 18)).foregroundStyle(.red)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("TV'de YouTube'da oynat").font(.system(size: 12.5, weight: .medium))
+                        Text(youtube.id).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "return").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.accent)
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.accent.opacity(0.18)))
+                .contentShape(Rectangle())
+                .onTapGesture { playYouTube(youtube) }
+            } else if results.isEmpty {
                 Text(query.isEmpty ? "Yazmaya başla: “trt”, “15”, “haber”…" : "Sonuç yok")
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
@@ -119,6 +136,11 @@ struct CommandPalette: View {
     private func move(_ step: Int, in results: [Result]) {
         guard !results.isEmpty else { return }
         selection = (selection + step + results.count) % results.count
+    }
+
+    private func playYouTube(_ video: YouTubeVideo) {
+        tv.playYouTube(video)
+        close()
     }
 
     private func choose(_ results: [Result]) {

@@ -29,13 +29,14 @@ struct HTTPResponse: Sendable {
 enum RawHTTP {
     static func request(
         host: String, port: UInt16, method: String, path: String,
-        body: String? = nil, origin: String? = nil, headers: [String: String] = [:], timeout: TimeInterval = 3
+        body: String? = nil, contentType: String = "application/xml", origin: String? = nil,
+        headers: [String: String] = [:], timeout: TimeInterval = 3
     ) async throws -> HTTPResponse {
         let bodyData = Data((body ?? "").utf8)
         var head = "\(method) \(path) HTTP/1.1\r\nHost: \(host):\(port)\r\nConnection: close\r\n"
         if let origin { head += "Origin: \(origin)\r\n" }
         for (name, value) in headers { head += "\(name): \(value)\r\n" }
-        if body != nil { head += "Content-Type: application/xml\r\n" }
+        if body != nil { head += "Content-Type: \(contentType)\r\n" }
         if body != nil || method == "POST" { head += "Content-Length: \(bodyData.count)\r\n" }
         head += "\r\n"
 
@@ -210,9 +211,10 @@ enum SmartCenter {
     }
 
     /// DIAL ile bir uygulama başlatır (ör. "Netflix").
-    static func launch(app: String, on host: String) async throws {
+    static func launch(app: String, on host: String, body: String? = nil) async throws {
         let response = try await RawHTTP.request(
-            host: host, port: port, method: "POST", path: "/apps/\(app)", origin: origin(for: app)
+            host: host, port: port, method: "POST", path: "/apps/\(app)", body: body,
+            contentType: "text/plain; charset=utf-8", origin: origin(for: app)
         )
         guard (200..<300).contains(response.status) else { throw TVError.http(response.status) }
     }

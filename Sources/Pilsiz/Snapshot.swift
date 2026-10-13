@@ -7,6 +7,18 @@ import SwiftUI
 enum Snapshot {
     /// Anlık görüntü modu başladıysa true; çağıran paket gerektiren kurulumları (bildirimler) atlamalı.
     static func runIfRequested(_ tv: TVController) -> Bool {
+        // PILSIZ_PLAY_YOUTUBE=<link>: YouTube gönderimini uçtan uca dener, sonucu yazdırıp çıkar.
+        if let link = ProcessInfo.processInfo.environment["PILSIZ_PLAY_YOUTUBE"] {
+            Task {
+                for _ in 0..<20 where !tv.isOnline { try? await Task.sleep(for: .milliseconds(500)) }
+                guard let video = YouTubeVideo(link: link) else { print("geçersiz link"); exit(1) }
+                tv.playYouTube(video)
+                for _ in 0..<60 where tv.youtube.status == .sending { try? await Task.sleep(for: .milliseconds(500)) }
+                print("youtube:", tv.youtube.status)
+                exit(0)
+            }
+            return true
+        }
         guard let dir = ProcessInfo.processInfo.environment["PILSIZ_SNAPSHOT"] else { return false }
         RootView.scrolls = false
         Task {

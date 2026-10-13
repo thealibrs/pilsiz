@@ -36,6 +36,7 @@ struct RootView: View {
     @Environment(TVController.self) private var tv
     @Environment(PanelState.self) private var panel
     @AppStorage("tab") private var tab: Tab = .now
+    @State private var dropTargeted = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -67,10 +68,41 @@ struct RootView: View {
         .focusEffectDisabled()
         .focused($focused)
         .onKeyPress(phases: [.down, .repeat], action: handle)
+        .onDrop(of: [.url, .plainText], isTargeted: $dropTargeted, perform: dropYouTube)
+        .overlay {
+            if dropTargeted {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                    .overlay(Label("TV'de YouTube'da oynat", systemImage: "play.rectangle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(10)
+                        .background(Capsule().fill(Theme.background)))
+                    .padding(6)
+                    .allowsHitTesting(false)
+            }
+        }
         .onAppear {
             focused = true
             Task { await tv.refresh() }
         }
+    }
+
+    /// Panele bırakılan YouTube linkini TV'de oynatır.
+    private func dropYouTube(_ providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first else { return false }
+        let handle: @Sendable (String?) -> Void = { text in
+            guard let text, let video = YouTubeVideo(link: text) else { return }
+            Task { @MainActor in
+                tv.playYouTube(video)
+                tab = .apps
+            }
+        }
+        if provider.canLoadObject(ofClass: URL.self) {
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in handle(url?.absoluteString) }
+        } else {
+            _ = provider.loadObject(ofClass: NSString.self) { text, _ in handle(text as? String) }
+        }
+        return true
     }
 
     private var paddedContent: some View {

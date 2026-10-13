@@ -659,6 +659,7 @@ private struct DPad: View {
 struct AppsTab: View {
     var body: some View {
         VStack(spacing: 10) {
+            YouTubeCard()
             Card("Uygulamalar", icon: "square.grid.2x2") {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 14) {
                     ForEach(TVApp.all) { app in AppTile(app: app, size: 48) }
@@ -671,6 +672,92 @@ struct AppsTab: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 4)
         }
+    }
+}
+
+/// YouTube linkini TV'de oynatır; panodaki linki kendiliğinden önerir.
+struct YouTubeCard: View {
+    @Environment(TVController.self) private var tv
+    @State private var link = ""
+    @State private var info: YouTubeInfo?
+
+    private var video: YouTubeVideo? { YouTubeVideo(link: link) }
+
+    var body: some View {
+        Card(title: "YouTube'da aç", icon: "play.rectangle.fill", trailing: {
+            Button("Panodan") { link = NSPasteboard.general.string(forType: .string) ?? "" }
+                .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary)
+        }) {
+            HStack(spacing: 6) {
+                TextField("YouTube linki yapıştır", text: $link)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(play)
+                Button("TV'de oynat", action: play)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(video == nil)
+            }
+            if let info {
+                HStack(spacing: 10) {
+                    AsyncImage(url: info.thumbnail) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Theme.key
+                    }
+                    .frame(width: 96, height: 54)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(info.title).font(.system(size: 12, weight: .semibold)).lineLimit(2)
+                        Text(info.author).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+            } else if !link.isEmpty, video == nil {
+                Text("Bu bir YouTube linki değil.").font(.system(size: 10.5)).foregroundStyle(Theme.accent)
+            }
+            status
+            Text("Linki panele sürükleyip bırakabilir ya da ⌘K aramasına yapıştırabilirsin.")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .task(id: video?.id) {
+            info = nil
+            if let video { info = await YouTubeCaster.info(for: video) }
+        }
+        .onAppear {
+            if link.isEmpty, let text = NSPasteboard.general.string(forType: .string), YouTubeVideo(link: text) != nil {
+                link = text
+            }
+        }
+    }
+
+    @ViewBuilder private var status: some View {
+        switch tv.youtube.status {
+        case .idle:
+            EmptyView()
+        case .sending:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("TV'ye gönderiliyor…").font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        case .playing(_, let coldStart):
+            HStack(spacing: 8) {
+                Label("TV'de oynatılıyor", systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 11)).foregroundStyle(.green)
+                Spacer()
+                if coldStart {
+                    // YouTube kapalıyken açıldıysa profil ekranı videonun önüne geçebilir.
+                    Button("Başlamadıysa tekrar gönder") { tv.youtube.resend(on: tv.host) }
+                        .buttonStyle(.plain).font(.system(size: 10.5)).foregroundStyle(.secondary)
+                }
+            }
+        case .failed(let message):
+            Text("Gönderilemedi: \(message)").font(.system(size: 11)).foregroundStyle(Theme.accent)
+        }
+    }
+
+    private func play() {
+        guard let video else { return }
+        tv.playYouTube(video)
     }
 }
 

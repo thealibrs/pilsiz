@@ -39,6 +39,7 @@ Test edilen cihaz: **Daewoo 43DE54F** (anakart: Vestel **17MB181TC**). Vestel'in
 Ayrıca:
 
 - 🔔 **Program hatırlatıcı:** Kanallar listesindeki takvim düğmesinden ya da "Sırada" satırındaki zilden bir programa hatırlatıcı kur. Başlamadan 5 dk önce gelen bildirimdeki **Kanala geç** düğmesi, TV kapalıysa önce açar, sonra o kanala geçer.
+- ▶️ **YouTube linkini TV'de aç:** Linki Uygulamalar sekmesindeki karta yapıştır, panele sürükle-bırak ya da ⌘K'ya yapıştır; video (varsa zaman damgası ve oynatma listesiyle) TV'deki YouTube'da başlar. Panodaki link kendiliğinden önerilir.
 - 📡 **Kanal listesi TV'den:** Kanallar sekmesindeki ⟳ düğmesiyle (ve günde bir kendiliğinden) TV'deki tüm kanallar (radyolar hariç) listeye eklenir; düzenlediğin adlar ve favoriler korunur.
 - ⌨️ **Klavye:** Kumanda sekmesinden yazdığın metin TV'deki etkin yazı alanına (YouTube, Netflix araması) gider.
 - 🖱 **Touchpad:** Fareyi Kumanda sekmesindeki alanın üzerinde gezdirdikçe TV imleci hareket eder; tıklama OK'dir. TV imleci yalnızca **tarayıcı** gibi web ekranlarında gösterir, canlı yayında ve menülerde göstermez (telefon uygulamasında da böyle).
@@ -175,6 +176,17 @@ Komutların HTTP yanıtı boştur; **sonuç, TV'nin 7681 portundaki WebSocket'in
 
 `rsn` TV'deki kanal numarası, `type` 25/22/1 yayın, 2 radyo, 131 internet kanalıdır. TV listeyi yalnızca o an bağlı istemcilere gönderdiği için WebSocket, komuttan **önce** açılmalıdır.
 
+### YouTube'a video gönderme
+
+DIAL'a `v=<id>` göndermek YouTube'u açar ama videoyu oynatmaz. Bunun yerine telefonlardaki "TV'de izle" düğmesinin kullandığı **YouTube Lounge** kanalı kullanılır:
+
+1. **Eşleştirme (bir kez):** `POST /apps/YouTube` gövdesi `pairingCode=<uuid>&theme=cl` → TV'deki YouTube bu kodla kaydolur; `POST https://www.youtube.com/api/lounge/pairing/get_screen` (`pairing_code=<uuid>`) kalıcı `screenId` döndürür. TV'de kod girmek gerekmez.
+2. **Anahtar:** `POST …/pairing/get_lounge_token_batch` (`screen_ids=<screenId>`) → `loungeToken`.
+3. **Oturum:** `POST …/bc/bind?…&loungeIdToken=…` gövdesi `count=0` → yanıttan `SID`, `gsessionid`, `AID`.
+4. **Oynat:** aynı uca `req0__sc=setPlaylist&req0_videoId=<id>&req0_currentTime=<sn>…`.
+
+Lounge API'si belgelenmemiştir; açık kaynak istemcilerle (ör. pyytlounge) aynı biçimde kullanılır.
+
 ### Uygulamalar (DIAL)
 
 | Uygulama | Uç nokta | Not |
@@ -211,6 +223,7 @@ Sources/Pilsiz/
 ├── Reminders.swift      # Program hatırlatıcıları ve bildirimler
 ├── CommandPalette.swift # ⌘K hızlı arama
 ├── HotKeys.swift        # Sistem geneli kısayollar (Carbon)
+├── YouTube.swift        # YouTube linki ayrıştırma ve Lounge ile TV'de oynatma
 ├── Components.swift     # Tema ve ortak bileşenler
 └── Snapshot.swift       # (yalnızca DEBUG) sekmeleri PNG'ye çizer
 Resources/

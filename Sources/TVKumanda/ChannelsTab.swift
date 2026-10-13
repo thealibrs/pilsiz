@@ -5,6 +5,7 @@ struct ChannelsTab: View {
     @State private var search = ""
     @State private var editing: Channel?
     @State private var scanning = false
+    @State private var expandedSchedule: UUID?
 
     var body: some View {
         VStack(spacing: 10) {
@@ -40,7 +41,13 @@ struct ChannelsTab: View {
             } else {
                 TimelineView(.everyMinute) { context in
                     VStack(spacing: 4) {
-                        ForEach(filtered) { channel in row(channel, at: context.date) }
+                        ForEach(filtered) { channel in
+                            row(channel, at: context.date)
+                            if expandedSchedule == channel.id {
+                                ScheduleList(channel: channel, date: context.date)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
                     }
                 }
             }
@@ -77,6 +84,21 @@ struct ChannelsTab: View {
             }
             Spacer()
             if isCurrent, tv.isOnline { SectionLabel(text: "Ekranda", color: Theme.accent) }
+            if programme != nil {
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) {
+                        expandedSchedule = expandedSchedule == channel.id ? nil : channel.id
+                    }
+                } label: {
+                    Image(systemName: hasReminder(channel) ? "bell.badge.fill" : "calendar.badge.clock")
+                        .font(.system(size: 11))
+                        .foregroundStyle(expandedSchedule == channel.id || hasReminder(channel) ? Theme.accent : Color.secondary)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Yayın akışı ve hatırlatıcılar")
+            }
             Button { tv.channels.toggleFavorite(channel) } label: {
                 Image(systemName: channel.favorite ? "star.fill" : "star")
                     .font(.system(size: 11))
@@ -100,6 +122,10 @@ struct ChannelsTab: View {
             Button("Sil", role: .destructive) { tv.channels.delete(channel) }
         }
         .help("Tıkla: kanala geç · Sağ tık: düzenle")
+    }
+
+    private func hasReminder(_ channel: Channel) -> Bool {
+        tv.reminders.upcoming.contains { $0.channelNumber == channel.number }
     }
 
     private var emptyState: some View {
@@ -221,5 +247,52 @@ private struct ScanWizard: View {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         if !trimmed.isEmpty { tv.channels.upsert(Channel(number: number, name: trimmed)) }
         go(to: number + 1)
+    }
+}
+
+/// Bir kanalın sıradaki programları; her birine hatırlatıcı kurulabilir.
+private struct ScheduleList: View {
+    @Environment(TVController.self) private var tv
+    let channel: Channel
+    let date: Date
+
+    var body: some View {
+        let programmes = tv.epg.upcoming(for: channel.name, from: date)
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(programmes, id: \.start) { programme in
+                let isSet = tv.reminders.isSet(channel: channel, programme: programme)
+                HStack(spacing: 10) {
+                    Text(dayPrefix(programme.start) + clock(programme.start))
+                        .font(.system(size: 11, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 70, alignment: .leading)
+                    Text(programme.title).font(.system(size: 11.5)).lineLimit(1)
+                    Spacer()
+                    Button { tv.reminders.toggle(channel: channel, programme: programme) } label: {
+                        Image(systemName: isSet ? "bell.fill" : "bell")
+                            .font(.system(size: 11))
+                            .foregroundStyle(isSet ? Theme.accent : Color.secondary)
+                            .frame(width: 22, height: 20)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(isSet ? "Hatırlatıcıyı kaldır" : "Başlamadan 5 dk önce hatırlat")
+                }
+                .padding(.vertical, 3)
+            }
+            if tv.reminders.permissionDenied {
+                Text("Bildirim izni yok: Sistem Ayarları › Bildirimler › TV Kumanda")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Theme.accent)
+            }
+        }
+        .padding(.leading, 44)
+        .padding(.trailing, 8)
+        .padding(.vertical, 4)
+    }
+
+    private func dayPrefix(_ start: Date) -> String {
+        Calendar.current.isDateInToday(start) ? "" : dayLabel(start) + " "
     }
 }

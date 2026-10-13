@@ -5,8 +5,9 @@ import SwiftUI
 /// Geliştirme aracı: TVKUMANDA_SNAPSHOT=<klasör> ile çalıştırılınca her sekmeyi PNG olarak kaydeder ve çıkar.
 @MainActor
 enum Snapshot {
-    static func runIfRequested(_ tv: TVController) {
-        guard let dir = ProcessInfo.processInfo.environment["TVKUMANDA_SNAPSHOT"] else { return }
+    /// Anlık görüntü modu başladıysa true; çağıran paket gerektiren kurulumları (bildirimler) atlamalı.
+    static func runIfRequested(_ tv: TVController) -> Bool {
+        guard let dir = ProcessInfo.processInfo.environment["TVKUMANDA_SNAPSHOT"] else { return false }
         RootView.scrolls = false
         Task {
             // TV durumu ve yayın akışı gelsin diye bekle (en fazla 20 sn).
@@ -16,7 +17,7 @@ enum Snapshot {
             try? await Task.sleep(for: .seconds(1))
             for tab in Tab.allCases {
                 UserDefaults.standard.set(tab.rawValue, forKey: "tab")
-                let renderer = ImageRenderer(content: RootView().environment(tv))
+                let renderer = ImageRenderer(content: RootView().environment(tv).environment(PanelState()))
                 renderer.scale = 2
                 if let tiff = renderer.nsImage?.tiffRepresentation,
                    let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
@@ -25,6 +26,7 @@ enum Snapshot {
             }
             exit(0)
         }
+        return true
     }
 }
 #endif

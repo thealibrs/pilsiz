@@ -73,6 +73,12 @@ final class EPGStore {
         return (upcoming, list.indices.contains(index + 1) ? list[index + 1] : nil)
     }
 
+    /// Kanalın şu andan itibaren yayınlanacak programları.
+    func upcoming(for channelName: String, from date: Date = Date(), limit: Int = 8) -> [Programme] {
+        guard let list = NameKey.candidates(channelName).lazy.compactMap({ self.programmes[$0] }).first else { return [] }
+        return Array(list.filter { $0.start > date }.prefix(limit))
+    }
+
     private func run() async {
         if let data = try? Data(contentsOf: cacheURL) {
             await apply(data, date: modificationDate())

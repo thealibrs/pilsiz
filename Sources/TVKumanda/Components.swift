@@ -206,6 +206,18 @@ struct AppBadge: View {
     }
 }
 
+/// "Bugün", "Yarın" ya da kısa gün adı ("Çar").
+func dayLabel(_ date: Date) -> String {
+    if Calendar.current.isDateInToday(date) { return "Bugün" }
+    if Calendar.current.isDateInTomorrow(date) { return "Yarın" }
+    return date.formatted(.dateTime.weekday(.abbreviated))
+}
+
+/// "21:00" biçiminde saat.
+func clock(_ date: Date) -> String {
+    date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
+}
+
 func formatDuration(_ seconds: Double) -> String {
     let minutes = Int(seconds / 60)
     if minutes >= 60 { return "\(minutes / 60) sa \(minutes % 60) dk" }

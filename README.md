@@ -36,10 +36,24 @@ Test edilen cihaz: **Daewoo 43DE54F** (anakart: Vestel **17MB181TC**). Vestel'in
 
 Ayrıca:
 
+- 🔔 **Program hatırlatıcı:** Kanallar listesindeki takvim düğmesinden ya da "Sırada" satırındaki zilden bir programa hatırlatıcı kur. Başlamadan 5 dk önce gelen bildirimdeki **Kanala geç** düğmesi, TV kapalıysa önce açar, sonra o kanala geçer.
+- 🔎 **Hızlı arama (⌘K):** Kanal adı, numarası ya da **yayındaki program adıyla** ara ("kuruluş" yazınca dizinin olduğu kanal çıkar); ↑↓ ile seç, ↩ ile geç.
+- 🧷 **Menü çubuğunda kanal:** Simgenin yanında kanal adı ya da "kanal · program" yazar (Ayarlar'dan seçilir).
+- ⌨️ **Her yerde çalışan kısayollar** (panel kapalıyken de; Ayarlar'dan kapatılabilir):
+
+  | Kısayol | İşlev |
+  |---|---|
+  | `⌃⌥⌘ ↑` / `⌃⌥⌘ ↓` | Ses |
+  | `⌃⌥⌘ →` / `⌃⌥⌘ ←` | Kanal + / − |
+  | `⌃⌥⌘ M` | Sessiz |
+  | `⌃⌥⌘ K` | Paneli kanal aramasıyla aç |
+
+  ⌃⌥⌘ seçildi çünkü ⌥⌘←/→ tarayıcılarda sekme değiştirir.
+
 - 🔍 **Otomatik keşif:** TV'yi yerel ağda kendisi bulur, MAC adresini öğrenir.
 - 🔊 **Sürüklenebilir ses çubuğu:** TV ses seviyesini ağdan bildirmediği için seviye uygulamada takip edilir. Çubuk, aradaki fark kadar +/− basışı gönderir.
 - ⚡ **Wake-on-LAN:** TV kapalıyken güç tuşu ağdan uyandırma paketi gönderir.
-- ⌨️ **Klavye kısayolları** (Ekranda ve Kumanda sekmelerinde):
+- ⌨️ **Panel kısayolları** (Ekranda ve Kumanda sekmelerinde):
 
   | Tuş | İşlev | Tuş | İşlev |
   |---|---|---|---|
@@ -168,6 +182,9 @@ Sources/TVKumanda/
 ├── SettingsTab.swift    # Ayarlar
 ├── ChannelLogo.swift    # Logo eşleştirme ve yedek rozet
 ├── EPG.swift            # Yayın akışı: indirme, önbellek, XMLTV ayrıştırma, ad eşleştirme
+├── Reminders.swift      # Program hatırlatıcıları ve bildirimler
+├── CommandPalette.swift # ⌘K hızlı arama
+├── HotKeys.swift        # Sistem geneli kısayollar (Carbon)
 ├── Components.swift     # Tema ve ortak bileşenler
 └── Snapshot.swift       # (yalnızca DEBUG) sekmeleri PNG'ye çizer
 Resources/

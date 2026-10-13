@@ -33,6 +33,7 @@ struct RootView: View {
     nonisolated(unsafe) static var scrolls = true
 
     @Environment(TVController.self) private var tv
+    @Environment(PanelState.self) private var panel
     @AppStorage("tab") private var tab: Tab = .now
     @FocusState private var focused: Bool
 
@@ -78,6 +79,14 @@ struct RootView: View {
     }
 
     @ViewBuilder private var content: some View {
+        if panel.paletteOpen {
+            CommandPalette()
+        } else {
+            tabContent
+        }
+    }
+
+    @ViewBuilder private var tabContent: some View {
         switch tab {
         case .now: NowTab()
         case .remote: RemoteTab()
@@ -102,6 +111,18 @@ struct RootView: View {
                 Text("Daewoo 43DE54F · Vestel").font(.system(size: 10.5)).foregroundStyle(.secondary)
             }
             Spacer()
+            Button {
+                panel.paletteOpen.toggle()
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(panel.paletteOpen ? Theme.accent : .secondary)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(Theme.key))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Kanal ara (⌘K)")
             KeyButton(action: tv.power, help: tv.isOnline ? "Kapat" : "Aç") {
                 Image(systemName: "power")
                     .font(.system(size: 13, weight: .bold))
@@ -120,6 +141,7 @@ struct RootView: View {
             ForEach(Tab.allCases) { item in
                 Button {
                     tab = item
+                    panel.paletteOpen = false
                 } label: {
                     Image(systemName: item.icon)
                         .font(.system(size: 13, weight: .medium))
@@ -175,7 +197,11 @@ struct RootView: View {
     // MARK: - Klavye kısayolları (Ekranda ve Kumanda sekmelerinde)
 
     private func handle(_ press: KeyPress) -> KeyPress.Result {
-        guard tab == .now || tab == .remote else { return .ignored }
+        if press.modifiers.contains(.command), press.characters.lowercased() == "k" {
+            panel.paletteOpen.toggle()
+            return .handled
+        }
+        guard !panel.paletteOpen, tab == .now || tab == .remote else { return .ignored }
         let key: RemoteKey? = switch press.key {
         case .upArrow: .up
         case .downArrow: .down

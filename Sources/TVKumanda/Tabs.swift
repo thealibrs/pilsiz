@@ -54,6 +54,10 @@ struct NowTab: View {
                 }
             }
 
+            if !tv.reminders.upcoming.isEmpty {
+                RemindersCard()
+            }
+
             InputsCard()
         }
     }
@@ -85,7 +89,7 @@ struct NowTab: View {
             }
             .padding(.top, 10)
             if let now = programme.now {
-                ProgrammeSummary(now: now, next: programme.next, date: date)
+                ProgrammeSummary(channel: tv.currentChannel, now: now, next: programme.next, date: date)
                     .padding(.top, 4)
             } else {
                 Text(subtitle)
@@ -137,6 +141,8 @@ struct NowTab: View {
 
 /// Şimdiki program: saat aralığı, ilerleme ve sıradaki program.
 struct ProgrammeSummary: View {
+    @Environment(TVController.self) private var tv
+    let channel: Channel?
     let now: Programme
     let next: Programme?
     let date: Date
@@ -159,16 +165,56 @@ struct ProgrammeSummary: View {
             }
             .frame(height: 3)
             if let next {
-                Text("Sırada \(clock(next.start)) · \(next.title)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text("Sırada \(clock(next.start)) · \(next.title)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    if let channel {
+                        let isSet = tv.reminders.isSet(channel: channel, programme: next)
+                        Button { tv.reminders.toggle(channel: channel, programme: next) } label: {
+                            Image(systemName: isSet ? "bell.fill" : "bell")
+                                .font(.system(size: 11))
+                                .foregroundStyle(isSet ? Theme.accent : Color.secondary)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(isSet ? "Hatırlatıcıyı kaldır" : "Başlamadan 5 dk önce hatırlat")
+                    }
+                }
             }
         }
     }
+}
 
-    private func clock(_ date: Date) -> String {
-        date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
+/// Yaklaşan program hatırlatıcıları.
+struct RemindersCard: View {
+    @Environment(TVController.self) private var tv
+
+    var body: some View {
+        Card("Hatırlatıcılar", icon: "bell") {
+            VStack(spacing: 6) {
+                ForEach(tv.reminders.upcoming) { reminder in
+                    HStack(spacing: 10) {
+                        ChannelLogo(name: reminder.channelName, height: 16).frame(width: 40)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(reminder.title).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                            Text("\(dayLabel(reminder.start)) \(clock(reminder.start)) · \(reminder.channelName)")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        Button { tv.reminders.remove(reminder) } label: {
+                            Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Hatırlatıcıyı kaldır")
+                    }
+                }
+            }
+        }
     }
 }
 

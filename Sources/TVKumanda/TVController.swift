@@ -54,6 +54,7 @@ final class TVController {
     let channels = ChannelStore()
     let activity = ActivityStore()
     let epg = EPGStore()
+    let reminders = ReminderStore()
 
     var isOnline: Bool { status == .online }
     var inputs: [String] {
@@ -155,6 +156,24 @@ final class TVController {
         currentInput = "TV"
         runningApp = nil
         tune(channel.number)
+    }
+
+    /// Bildirim gibi dış tetikleyicilerden: TV kapalıysa önce uyandırır, sonra kanala geçer.
+    func open(channelNumber number: Int) {
+        guard let channel = channels.channels.first(where: { $0.number == number }) else { return }
+        if isOnline || mac.isEmpty {
+            switchTo(channel)
+            return
+        }
+        wake()
+        Task {
+            for _ in 0..<20 where !isOnline { try? await Task.sleep(for: .seconds(2)) }
+            // TV açılınca yayının başlaması için kısa bir süre tanınır.
+            if isOnline {
+                try? await Task.sleep(for: .seconds(4))
+                switchTo(channel)
+            }
+        }
     }
 
     func tune(_ number: Int) {

@@ -4,6 +4,8 @@ import SwiftUI
 struct SettingsTab: View {
     @Environment(TVController.self) private var tv
     @State private var customCode = ""
+    @AppStorage("menuBarStyle") private var menuBarStyle = MenuBarStyle.channel.rawValue
+    @AppStorage("globalHotKeys") private var globalHotKeys = true
 
     var body: some View {
         @Bindable var tv = tv
@@ -20,6 +22,27 @@ struct SettingsTab: View {
                 Text("Parlaklık, kontrast gibi değerler bu TV'de henüz ağdan okunup yazılamıyor; bu tuşlar TV'nin kendi menüsünü açar.")
                     .font(.system(size: 10.5)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Card("Menü çubuğu", icon: "menubar.rectangle") {
+                Picker("Simgenin yanında", selection: $menuBarStyle) {
+                    ForEach(MenuBarStyle.allCases) { Text($0.title).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
+            Card("Klavye kısayolları", icon: "keyboard") {
+                Toggle("Her yerde çalışsın (panel kapalıyken de)", isOn: $globalHotKeys)
+                    .font(.system(size: 12))
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 5) {
+                    shortcut("⌃⌥⌘ ↑ / ↓", "Ses")
+                    shortcut("⌃⌥⌘ → / ←", "Kanal + / −")
+                    shortcut("⌃⌥⌘ M", "Sessiz")
+                    shortcut("⌃⌥⌘ K", "Kanal ara")
+                    shortcut("⌘K", "Kanal ara (panel açıkken)")
+                }
+                .opacity(globalHotKeys ? 1 : 0.5)
             }
 
             Card("Bağlantı", icon: "wifi") {
@@ -64,6 +87,13 @@ struct SettingsTab: View {
                     .font(.system(size: 12))
                 Button("Uygulamadan çık") { NSApp.terminate(nil) }
             }
+        }
+    }
+
+    private func shortcut(_ keys: String, _ title: String) -> some View {
+        GridRow {
+            Text(keys).font(.system(size: 11, weight: .medium, design: .rounded)).monospacedDigit()
+            Text(title).font(.system(size: 11)).foregroundStyle(.secondary)
         }
     }
 

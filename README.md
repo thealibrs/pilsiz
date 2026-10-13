@@ -19,6 +19,8 @@ Bulut yok, hesap yok: Mac ile TV yerel ağda doğrudan konuşur.
 
 [Özellikler](#özellikler) · [Pano](#-pano) · [Pilsiz'e söyle](#-pilsize-söyle) · [Kurulum](#kurulum) · [Nasıl çalışır?](#nasıl-çalışır) · [Katkı](#katkı)
 
+**Türkçe** · [English](README.en.md)
+
 </div>
 
 ---

@@ -5,6 +5,7 @@ import SwiftUI
 struct NowTab: View {
     @Environment(TVController.self) private var tv
     @AppStorage("tab") private var tab: Tab = .now
+    @State private var pickingChannel = false
 
     var body: some View {
         VStack(spacing: 10) {
@@ -86,6 +87,14 @@ struct NowTab: View {
                 SectionLabel(text: "● Şimdi ekranda", color: Theme.accent)
                 Spacer()
                 if tv.isOnline, let input = tv.currentInput { SectionLabel(text: input, color: Theme.accent) }
+                if tv.isOnline, tv.runningApp == nil, !tv.channels.channels.isEmpty {
+                    Button("Değiştir") { pickingChannel = true }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .help("TV'de başka bir kanal açıksa buradan düzelt")
+                        .popover(isPresented: $pickingChannel, arrowEdge: .bottom) { CurrentChannelPicker() }
+                }
             }
             .padding(.top, 10)
             if let now = programme.now {

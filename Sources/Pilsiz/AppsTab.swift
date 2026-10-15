@@ -366,6 +366,8 @@ struct YouTubeCard: View {
     @State private var link = ""
     @State private var info: YouTubeInfo?
     @State private var fromClipboard = false
+    /// Panonun en son bakılan sürümü; aynı kopyalama iki kez yapıştırılmaz.
+    @State private var seenPasteboard = -1
 
     private var video: YouTubeVideo? { YouTubeVideo(link: link) }
 
@@ -377,9 +379,6 @@ struct YouTubeCard: View {
                 if fromClipboard, video != nil {
                     Label("Panodan alındı", systemImage: "doc.on.clipboard")
                         .font(.system(size: 10.5)).foregroundStyle(.tertiary)
-                } else {
-                    Button("Panodan", action: paste)
-                        .buttonStyle(.plain).font(.system(size: 10.5)).foregroundStyle(.secondary)
                 }
             }
             if let video {
@@ -422,10 +421,11 @@ struct YouTubeCard: View {
             info = nil
             if let video { info = await YouTubeCaster.info(for: video) }
         }
-        .onAppear {
-            if link.isEmpty, let text = NSPasteboard.general.string(forType: .string), YouTubeVideo(link: text) != nil {
-                link = text
-                fromClipboard = true
+        .task {
+            // Sekme açıkken yeni kopyalanan YouTube linki de kendiliğinden gelir.
+            while !Task.isCancelled {
+                takeFromPasteboard()
+                try? await Task.sleep(for: .seconds(1))
             }
         }
     }
@@ -462,7 +462,7 @@ struct YouTubeCard: View {
                 .multilineTextAlignment(.center)
                 .font(.system(size: 12, weight: .medium))
                 .onSubmit(play)
-            Text("ya da linki panele sürükleyip bırak")
+            Text("Kopyaladığın YouTube linki buraya kendiliğinden gelir")
                 .font(.system(size: 10.5))
                 .foregroundStyle(.tertiary)
             if !link.isEmpty {
@@ -500,9 +500,15 @@ struct YouTubeCard: View {
         }
     }
 
-    private func paste() {
-        link = NSPasteboard.general.string(forType: .string) ?? ""
-        fromClipboard = video != nil
+    /// Pano değiştiyse ve içinde YouTube linki varsa alana koyar.
+    private func takeFromPasteboard() {
+        let pasteboard = NSPasteboard.general
+        guard pasteboard.changeCount != seenPasteboard else { return }
+        seenPasteboard = pasteboard.changeCount
+        guard let text = pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              YouTubeVideo(link: text) != nil, text != link else { return }
+        link = text
+        fromClipboard = true
     }
 
     private func play() {

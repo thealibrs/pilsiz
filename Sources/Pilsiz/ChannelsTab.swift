@@ -436,6 +436,7 @@ struct ChannelsTab: View {
 
     @ViewBuilder private func menu(_ channel: Channel) -> some View {
         Button("Kanala geç") { tv.switchTo(channel) }
+        Button("TV'de şu an bu kanal var") { tv.markCurrent(channel) }
         Button("Yayın akışı") { layout = .list; toggleSchedule(channel) }
         Button("Düzenle") { scanning = false; editing = channel }
         Button(channel.favorite ? "Favorilerden çıkar" : "Favorilere ekle") { tv.channels.toggleFavorite(channel) }
@@ -691,5 +692,63 @@ private struct ScheduleList: View {
 
     private func dayPrefix(_ start: Date) -> String {
         Calendar.current.isDateInToday(start) ? "" : dayLabel(start) + " "
+    }
+}
+
+/// "TV'de şu an hangi kanal var?": seçilen kanal TV'ye komut gönderilmeden ekrandaki kanal olarak işaretlenir.
+struct CurrentChannelPicker: View {
+    @Environment(TVController.self) private var tv
+    @Environment(\.dismiss) private var dismiss
+    @State private var search = ""
+
+    private var channels: [Channel] {
+        let query = search.trimmingCharacters(in: .whitespaces)
+        let all = tv.channels.channels
+        guard !query.isEmpty else { return tv.channels.favorites + all.filter { !$0.favorite } }
+        return all.filter { $0.name.localizedStandardContains(query) || String($0.number).hasPrefix(query) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("TV'de şu an hangi kanal var?").font(.system(size: 13, weight: .semibold))
+            Text("Kanalı TV'den ya da telefondan değiştirdiysen Pilsiz bunu göremez. Buradan seçtiğin kanal TV'ye gönderilmez, yalnızca Pilsiz'de güncellenir.")
+                .font(.system(size: 10.5)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            TextField("Kanal adı ya da numarası", text: $search)
+                .textFieldStyle(.roundedBorder)
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(channels) { channel in
+                        Button {
+                            tv.markCurrent(channel)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("\(channel.number)")
+                                    .font(.system(size: 10.5, weight: .bold)).monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 26, alignment: .trailing)
+                                LogoBox(name: channel.name, width: 44, height: 24)
+                                Text(channel.name).font(.system(size: 12)).lineLimit(1)
+                                Spacer(minLength: 0)
+                                if channel.favorite {
+                                    Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(.yellow)
+                                }
+                                if tv.currentChannel?.id == channel.id {
+                                    Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.accent)
+                                }
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .frame(height: 280)
+        }
+        .padding(14)
+        .frame(width: 300)
     }
 }

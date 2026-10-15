@@ -199,6 +199,14 @@ final class TVController {
         tune(channel.number)
     }
 
+    /// TV'de şu an açık olan kanalı TV'ye komut göndermeden işaretler.
+    /// TV açık kanalı ağdan bildirmediği için kanal başka yerden değişince buradan düzeltilir.
+    func markCurrent(_ channel: Channel) {
+        channels.lastChannelID = channel.id
+        currentInput = "TV"
+        runningApp = nil
+    }
+
     /// Bildirim gibi dış tetikleyicilerden: TV kapalıysa önce uyandırır, sonra kanala geçer.
     func open(channelNumber number: Int) {
         guard let channel = channels.channels.first(where: { $0.number == number }) else { return }

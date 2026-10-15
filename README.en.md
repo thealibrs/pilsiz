@@ -27,6 +27,14 @@ No cloud, no account: the Mac and the TV talk directly over the local network.
 
 > **Language note.** The app's interface, the voice commands and the code comments are in Turkish, and the programme guide and news sources are Turkish. The screenshots below show the Turkish interface; tab names are given as *Turkish (English)*. The protocol notes in [How it works](#how-it-works) apply to any Vestel-based TV.
 
+<div align="center">
+
+<img src="docs/screenshots/kullanim.gif" alt="A short tour of the Pilsiz panel: opening it from the menu bar, then the Channels, On Screen, Remote, Apps, Show on TV, Activity and Settings tabs" width="380">
+
+<sub>A short tour of the panel that opens from the menu bar</sub>
+
+</div>
+
 ## Why?
 
 When my physical remote broke I had to control the TV with the *TV Smart Centre* app on my phone. This project brings the same control to the Mac. It connects to no cloud; the Mac and the TV talk directly over the local network. The name comes from there: *pilsiz* is Turkish for "without batteries", a remote whose batteries never run out.

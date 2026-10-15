@@ -25,6 +25,14 @@ Bulut yok, hesap yok: Mac ile TV yerel ağda doğrudan konuşur.
 
 ---
 
+<div align="center">
+
+<img src="docs/screenshots/kullanim.gif" alt="Pilsiz panelinde kısa bir tur: menü çubuğundan açılış, Kanallar, Ekranda, Kumanda, Uygulamalar, TV'de göster, Aktivite ve Ayarlar sekmeleri" width="380">
+
+<sub>Menü çubuğundan açılan panelde kısa bir tur</sub>
+
+</div>
+
 ## Neden?
 
 Fiziksel kumanda kırılınca TV'yi telefondaki *TV Smart Centre* uygulamasıyla yönetmek zorunda kalmıştım. Bu proje, aynı kontrolü Mac'e taşıyor. Hiçbir buluta bağlanmıyor; Mac ile TV, yerel ağ üzerinden doğrudan konuşuyor. Adı da buradan: pili hiç bitmeyen bir kumanda.

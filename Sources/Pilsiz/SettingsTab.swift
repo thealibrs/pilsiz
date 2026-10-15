@@ -32,6 +32,7 @@ struct SettingsTab: View {
             }
 
             ShortcutsCard()
+            PanoSettingsCard()
 
             Card("Bağlantı", icon: "wifi") {
                 field("TV adı") { TextField("Salon", text: $tv.name).textFieldStyle(.roundedBorder) }
@@ -90,6 +91,81 @@ struct SettingsTab: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(.system(size: 10.5)).foregroundStyle(.secondary)
             content()
+        }
+    }
+}
+
+/// Panodaki hava durumunun şehri ve haberlerin kaynağı.
+private struct PanoSettingsCard: View {
+    @Environment(TVController.self) private var tv
+    @State private var query = ""
+    @State private var searching = false
+    @State private var notFound = false
+    @State private var customFeed = ""
+    @State private var wantsCustom = false
+
+    private var pano: Dashboard { tv.dashboard }
+    private var isCustom: Bool { !NewsSource.presets.contains { $0.url == pano.newsFeed } }
+
+    var body: some View {
+        Card("Pano", icon: "square.grid.2x2") {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Hava durumu şehri").font(.system(size: 11)).foregroundStyle(.secondary)
+                HStack {
+                    TextField(pano.city.name, text: $query)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(findCity)
+                    Button(action: findCity) {
+                        if searching { ProgressView().controlSize(.small) } else { Text("Bul") }
+                    }
+                    .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty || searching)
+                }
+                Text(notFound ? "“\(query)” bulunamadı. Şehrin adını kontrol et." : "Şu an: \(pano.city.name)")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(notFound ? Theme.accent : .secondary)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Haber kaynağı").font(.system(size: 11)).foregroundStyle(.secondary)
+                Picker("Haber kaynağı", selection: Binding(
+                    get: { isCustom || wantsCustom ? nil : pano.newsFeed },
+                    set: { url in
+                        wantsCustom = url == nil
+                        if let url { pano.newsFeed = url } else if isCustom { customFeed = pano.newsFeed.absoluteString }
+                    }
+                )) {
+                    ForEach(NewsSource.presets, id: \.url) { Text($0.name).tag(Optional($0.url)) }
+                    Divider()
+                    Text("Başka bir RSS adresi").tag(URL?.none)
+                }
+                .labelsHidden()
+                if isCustom || wantsCustom {
+                    TextField("https://…/rss", text: $customFeed)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            if let url = URL(string: customFeed.trimmingCharacters(in: .whitespaces)), url.scheme?.hasPrefix("http") == true {
+                                pano.newsFeed = url
+                            }
+                        }
+                    Text("RSS adresini yazıp Enter'a bas.").font(.system(size: 10.5)).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .onAppear { if isCustom { customFeed = pano.newsFeed.absoluteString } }
+    }
+
+    private func findCity() {
+        let name = query.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        searching = true
+        notFound = false
+        Task {
+            if let city = await Dashboard.findCity(name) {
+                pano.city = city
+                query = ""
+            } else {
+                notFound = true
+            }
+            searching = false
         }
     }
 }

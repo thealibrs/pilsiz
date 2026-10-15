@@ -31,7 +31,8 @@ final class ScreenShare {
     private var mirror: MirrorCapture?
     private var slideshowTask: Task<Void, Never>?
     private var launchFailure: String?
-    private var photos: [URL] = []
+    /// Slayttaki fotoğraflar, gösterim sırasıyla.
+    private(set) var photos: [URL] = []
     private var photoIndex = 0
 
     static let imageTypes: [UTType] = [.image]
@@ -103,6 +104,13 @@ final class ScreenShare {
     func step(_ delta: Int) {
         guard !photos.isEmpty else { return }
         showPhoto(at: (photoIndex + delta + photos.count) % photos.count)
+        restartSlideshow()
+    }
+
+    /// Slayttaki belirli bir fotoğrafa geçer.
+    func showPhoto(_ index: Int) {
+        guard photos.indices.contains(index) else { return }
+        showPhoto(at: index)
         restartSlideshow()
     }
 

@@ -34,6 +34,8 @@ final class TVController {
     var host: String { didSet { defaults.set(host, forKey: "host") } }
     var mac: String { didSet { defaults.set(mac, forKey: "mac") } }
     var name: String { didSet { defaults.set(name, forKey: "name") } }
+    /// TV'nin kendi bildirdiği model ("Daewoo 43DE54F · Vestel"); TV ilk kez bulununca öğrenilir.
+    private(set) var model: String { didSet { defaults.set(model, forKey: "tvModel") } }
     /// TV'nin kaynak menüsündeki sırayla, virgülle ayrılmış giriş adları.
     var inputsText: String { didSet { defaults.set(inputsText, forKey: "inputs") } }
 
@@ -41,7 +43,16 @@ final class TVController {
     private(set) var lastError: String?
     private(set) var discovered: [String] = []
     /// DIAL'a göre şu an TV'de çalışan uygulama.
-    private(set) var runningApp: TVApp?
+    private(set) var runningApp: TVApp? {
+        didSet {
+            guard runningApp != oldValue else { return }
+            // Pilsiz açıldığında zaten çalışan uygulamanın başlangıç zamanı bilinmez.
+            runningAppSince = runningApp != nil && hasPolledApps ? Date() : nil
+        }
+    }
+    /// Uygulamanın açıldığını Pilsiz'in gördüğü an.
+    private(set) var runningAppSince: Date?
+    private var hasPolledApps = false
     private(set) var currentInput: String?
 
     enum ChannelSync: Equatable {
@@ -91,6 +102,7 @@ final class TVController {
 
     private let defaults = UserDefaults.standard
     private var didAutoDiscover = false
+    private var wakeFailedAt: Date?
     private var lastSample: Date?
     /// Komutlar sırayla çalışır; TV'nin gömülü sunucusu eşzamanlı isteklerde takılabiliyor.
     private var queue: Task<Void, Never>?
@@ -99,6 +111,7 @@ final class TVController {
         host = defaults.string(forKey: "host") ?? ""
         mac = defaults.string(forKey: "mac") ?? ""
         name = defaults.string(forKey: "name") ?? "Salon"
+        model = defaults.string(forKey: "tvModel") ?? ""
         inputsText = defaults.string(forKey: "inputs") ?? "TV, HDMI 1, HDMI 2, HDMI 3, AV"
         volume = defaults.object(forKey: "volume") as? Int ?? 20
         sentVolume = defaults.object(forKey: "volume") as? Int ?? 20
@@ -189,19 +202,7 @@ final class TVController {
     /// Bildirim gibi dış tetikleyicilerden: TV kapalıysa önce uyandırır, sonra kanala geçer.
     func open(channelNumber number: Int) {
         guard let channel = channels.channels.first(where: { $0.number == number }) else { return }
-        if isOnline || mac.isEmpty {
-            switchTo(channel)
-            return
-        }
-        wake()
-        Task {
-            for _ in 0..<20 where !isOnline { try? await Task.sleep(for: .seconds(2)) }
-            // TV açılınca yayının başlaması için kısa bir süre tanınır.
-            if isOnline {
-                try? await Task.sleep(for: .seconds(4))
-                switchTo(channel)
-            }
-        }
+        switchTo(channel)
     }
 
     // MARK: - Kanal listesi, klavye, imleç
@@ -302,7 +303,11 @@ final class TVController {
     /// YouTube videosunu TV'deki YouTube uygulamasında oynatır.
     func playYouTube(_ video: YouTubeVideo) {
         guard !host.isEmpty else { lastError = "Önce TV'nin IP adresini ayarlayın"; return }
-        youtube.play(video, on: host)
+        let host = host
+        Task {
+            guard await awaitAwake() else { return }
+            youtube.play(video, on: host)
+        }
         runningApp = TVApp.all.first { $0.id == "youtube" }
     }
 
@@ -314,6 +319,31 @@ final class TVController {
             enqueue { host in try await SmartCenter.launch(app: dialName, on: host) }
             runningApp = app
         }
+    }
+
+    /// Açık uygulamayı DIAL ile kapatır. DIAL kapatamazsa Çıkış tuşu gönderilir.
+    func close(_ app: TVApp) {
+        guard case .dial(let dialName) = app.launch else { send(code: RemoteKey.exit.rawValue); return }
+        if runningApp == app { runningApp = nil }
+        enqueue { host in
+            do {
+                try await SmartCenter.stop(app: dialName, on: host)
+            } catch {
+                try await SmartCenter.send(RemoteKey.exit.rawValue, to: host)
+            }
+        }
+    }
+
+    /// Uygulamayı kapatıp yeniden açar; uygulama kendi ana ekranından (ör. profil seçimi) başlar.
+    func restart(_ app: TVApp) {
+        guard case .dial(let dialName) = app.launch else { return }
+        enqueue { host in
+            try? await SmartCenter.stop(app: dialName, on: host)
+            try await Task.sleep(for: .seconds(2))
+            try await SmartCenter.launch(app: dialName, on: host)
+        }
+        runningApp = app
+        runningAppSince = Date()
     }
 
     func power() {
@@ -342,9 +372,24 @@ final class TVController {
             }
             if status == .waking {
                 status = .offline
+                wakeFailedAt = Date()
                 lastError = "TV uyanmadı. TV ayarlarında 'Ağda Uyandırma / Wake On LAN' açık mı?"
             }
         }
+    }
+
+    /// TV kapalıysa önce uyandırır ve ağa dönmesini bekler; böylece kapalıyken basılan kanal ya da
+    /// uygulama, TV açılınca kendiliğinden çalışır. TV zaten açıksa hemen döner.
+    private func awaitAwake() async -> Bool {
+        guard status == .offline || status == .waking, !mac.isEmpty else { return true }
+        // Uyandırma az önce başarısız olduysa sıradaki komutlar yeniden 30 sn beklemesin.
+        if let failed = wakeFailedAt, Date().timeIntervalSince(failed) < 10 { return false }
+        if status != .waking { wake() }
+        while status == .waking { try? await Task.sleep(for: .milliseconds(500)) }
+        guard isOnline else { return false }
+        // TV açılınca yayının ve uygulama sunucusunun hazır olması için kısa bir süre tanınır.
+        try? await Task.sleep(for: .seconds(4))
+        return true
     }
 
     private func enqueue(_ operation: @escaping @MainActor (String) async throws -> Void) {
@@ -353,6 +398,7 @@ final class TVController {
         let previous = queue
         queue = Task {
             await previous?.value
+            guard await awaitAwake() else { return }
             do {
                 try await operation(host)
                 markOnline()
@@ -402,9 +448,14 @@ final class TVController {
         let host = host
         for app in TVApp.tracked {
             guard case .dial(let dialName) = app.launch else { continue }
-            if await SmartCenter.isRunning(app: dialName, on: host) { runningApp = app; return }
+            if await SmartCenter.isRunning(app: dialName, on: host) {
+                runningApp = app
+                hasPolledApps = true
+                return
+            }
         }
         if let app = runningApp, TVApp.tracked.contains(app) { runningApp = nil }
+        hasPolledApps = true
     }
 
     private func recordActivity() {
@@ -429,10 +480,21 @@ final class TVController {
         status = .online
         lastError = nil
         if !wasOnline || mac.isEmpty { learnMAC() }
+        if !wasOnline || model.isEmpty { learnModel() }
         // Kanal listesi günde en fazla iki kez TV'den kendiliğinden tazelenir.
         let lastSync = defaults.object(forKey: "channelsSyncedAt") as? Date ?? .distantPast
         if !wasOnline, Date().timeIntervalSince(lastSync) > 12 * 3600 {
             Task { await syncChannels() }
+        }
+    }
+
+    private func learnModel() {
+        let host = host
+        Task {
+            if let info = await SmartCenter.deviceInfo(host) {
+                let label = SmartCenter.modelLabel(name: info.name, manufacturer: info.manufacturer)
+                if !label.isEmpty, label != model { model = label }
+            }
         }
     }
 

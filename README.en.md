@@ -31,7 +31,21 @@ No cloud, no account: the Mac and the TV talk directly over the local network.
 
 When my physical remote broke I had to control the TV with the *TV Smart Centre* app on my phone. This project brings the same control to the Mac. It connects to no cloud; the Mac and the TV talk directly over the local network. The name comes from there: *pilsiz* is Turkish for "without batteries", a remote whose batteries never run out.
 
-The only device tested is the **Daewoo 43DE54F** (mainboard: Vestel **17MB181TC**). It is expected to work on other TVs built on Vestel's SmartCenter platform (Vestel, Toshiba, Hitachi, Telefunken, JVC, Finlux…), but that has not been tried. If you try it on another model, sharing the result in an [issue](https://github.com/thealibrs/pilsiz/issues) helps a lot.
+It is built for TVs on Vestel's SmartCenter platform; see [Which TVs does it work with?](#which-tvs-does-it-work-with) for details.
+
+## Which TVs does it work with?
+
+Pilsiz talks to smart TVs built on Vestel's **SmartCenter** platform. Many brands made by Vestel use it: Vestel, Regal, Toshiba, Hitachi, Telefunken, JVC, Finlux, Daewoo… If the *Smart Center* phone app can see your TV, Pilsiz most likely can too.
+
+| | |
+|---|---|
+| ✅ **Expected on every SmartCenter TV** | Finding the TV on the network, remote keys, volume, fetching the channel list from the TV, opening Netflix / Prime Video / YouTube, playing a YouTube link, keyboard and pointer, Wake-on-LAN |
+| 🔎 **May vary by model** | Show on TV and the dashboard (the TV's HbbTV browser and port 12345), input selection (the order of the source menu), which screens show the pointer |
+| 🇹🇷 **Turkey-specific** | The programme guide (Türksat channels), channel logos, the language of the interface and voice commands (Turkish). Elsewhere, channel switching works; programme info and logos stay empty |
+
+Pilsiz assumes no particular TV: the channel list, model name and MAC address are read from the TV itself. The TV's name, input order, dashboard city and news source are changed in Settings.
+
+The only verified model is the **Daewoo 43DE54F** (Vestel **17MB181TC** mainboard, software 2.85.2.0). If you try another model, sharing its name and what did and did not work in an [issue](https://github.com/thealibrs/pilsiz/issues) helps a lot.
 
 ## 📺 Dashboard
 
@@ -66,7 +80,7 @@ The dashboard (*Pano*) is a personal home screen that opens full screen on the T
 - **Trackpad:** scroll with two fingers on the touch area in the *TV'de göster* tab; focus moves the way your fingers move. A two-finger tap or a click selects.
 - **Remote tab:** the on-screen direction keys.
 
-The Mac gathers the data; the TV's browser never goes out to the internet. Sources: the [Gazete Oksijen](https://gazeteoksijen.com) RSS feed for news, [Open-Meteo](https://open-meteo.com) for weather, Yahoo Finance for markets. The city (Ankara) and the news source are fixed in code for now; to change them, edit the `city` and `newsFeed` lines in [`Dashboard.swift`](Sources/Pilsiz/Dashboard.swift). YouTube shortcuts are edited from the panel.
+The Mac gathers the data; the TV's browser never goes out to the internet. Sources: the chosen RSS feed for news (Gazete Oksijen, BBC Türkçe, CNN Türk, Habertürk, TRT Haber or any RSS address), [Open-Meteo](https://open-meteo.com) for weather, Yahoo Finance for markets. The city and the news source are set under *Ayarlar › Pano* (Settings › Dashboard); YouTube shortcuts are edited in the *TV'de göster* (Show on TV) tab.
 
 ## 🎙 Tell Pilsiz
 
@@ -90,8 +104,8 @@ Speak or type in Turkish; Pilsiz understands and does it on the TV. Hold **⌃�
 | 🖥 **Ekranda** (On Screen) | What is on the TV right now: channel logo, **the programme on air**, its progress and what is next; or Netflix/Prime Video/YouTube. Volume, favourite channels, apps, inputs |
 | 🎮 **Kumanda** (Remote) | A body that looks like the TV's own remote and needs no scrolling: direction keys + OK, home, back, menu, exit, media keys, channel ±, digits, colour keys. Keys repeat while held |
 | 📺 **TV'de göster** (Show on TV) | Open the [dashboard](#-dashboard), mirror the Mac screen to the TV (full HD, ~15 frames per second), show photos as a slideshow, play a video. Without AirPlay, using HbbTV |
-| 📋 **Kanallar** (Channels) | Channel list with logos; under each channel, the programme on air. Click and the TV switches to it. Search, favourites (★), editing and a channel scan wizard |
-| 🔲 **Uygulamalar** (Apps) | Open Netflix, Prime Video and YouTube with one click. The app tracks which one is running |
+| 📋 **Kanallar** (Channels) | A list or a logo grid. The list shows the programme on air, time left and progress; the channel on screen stays pinned at the top. Favourites, most watched, search by channel, number or programme, editing and a channel scan wizard |
+| 🔲 **Uygulamalar** (Apps) | Open Netflix, Prime Video and YouTube with one click; today's usage is shown on each card. Close the running app and go back to live TV with one click |
 | 📊 **Aktivite** (Activity) | How long the TV was on, most watched channels, time per app (today / 7 days / 30 days) |
 | ⚙️ **Ayarlar** (Settings) | TV menu shortcuts, IP/MAC, input order, launch at login, raw key code testing |
 
@@ -166,7 +180,8 @@ cd pilsiz
 
 1. macOS asks for permission to **find devices on the local network** → **Allow**. (Later: *System Settings › Privacy & Security › Local Network*)
 2. The app searches the network and finds the TV. If it does not, enter the IP address by hand under *Ayarlar › Bağlantı* (Settings › Connection).
-3. To be able to turn the TV on while it is off, enable **Wake On LAN** in the TV's network settings.
+3. If the TV is on, the channel list is fetched from it automatically. To fetch it later: *Kanallar › … › Kanal listesini TV'den eşitle* (Channels › … › Sync from TV).
+4. To be able to turn the TV on while it is off, enable **Networked Standby Mode** in the TV's network settings (called *Wake On LAN* on some models).
 
 Other permissions, asked for by the feature that needs them: *Screen & System Audio Recording* for screen mirroring, *Microphone* and *Speech Recognition* for "Tell Pilsiz", *Notifications* for reminders.
 
@@ -322,8 +337,9 @@ Sources/Pilsiz/
 ├── Stores.swift         # Channel list and activity data (UserDefaults)
 ├── RemoteKey.swift      # Key codes
 ├── RootView.swift       # Header, tab bar, keyboard shortcuts
-├── Tabs.swift           # On Screen, Remote, Apps, Activity
-├── ChannelsTab.swift    # Channel list, editor, scan wizard
+├── Tabs.swift           # On Screen, Activity
+├── AppsTab.swift        # Apps tab
+├── ChannelsTab.swift    # Channel list and grid, editor, scan wizard
 ├── SettingsTab.swift    # Settings
 ├── ChannelLogo.swift    # Logo matching and fallback badge
 ├── EPG.swift            # Programme guide: download, cache, XMLTV parsing, name matching
@@ -388,7 +404,7 @@ Bug reports, test results from other TV models and proposed changes are welcome.
 - [node-red-contrib-vestel-tv](https://github.com/hyttysmyrkky/node-red-contrib-vestel-tv): extended key map
 - [shkspr.mobi](https://shkspr.mobi/blog/2018/11/telnet-control-of-toshiba-smart-tvs/): Toshiba/Vestel key codes
 - Programme guide: [epgshare01](https://epgshare01.online/epgshare01/) and [trology85/iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey)
-- Dashboard data: [Gazete Oksijen](https://gazeteoksijen.com) (news), [Open-Meteo](https://open-meteo.com) (weather), Yahoo Finance (markets)
+- Dashboard data: the chosen news site's RSS feed (default [Gazete Oksijen](https://gazeteoksijen.com)), [Open-Meteo](https://open-meteo.com) (weather and city search), Yahoo Finance (markets)
 - Dashboard fonts: [Figtree](https://github.com/erikdkennedy/figtree) and [Bricolage Grotesque](https://github.com/ateliertriay/bricolage), under the SIL Open Font License 1.1 (license texts are in `Resources/Fonts`)
 - Channel logos: [tv-logo/tv-logos](https://github.com/tv-logo/tv-logos)
 - The TV image in the On Screen tab was generated with Higgsfield (GPT Image 2.5)

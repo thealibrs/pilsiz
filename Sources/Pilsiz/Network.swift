@@ -250,6 +250,19 @@ enum SmartCenter {
         }
     }
 
+    /// Çalışan DIAL uygulamasını kapatır (DIAL: `DELETE` çalışma adresine; TV `allowStop="true"` bildiriyor).
+    /// Çalışma adresi uygulamanın durum yanıtındaki `<link rel="run" href=…>` bağlantısından okunur.
+    static func stop(app: String, on host: String) async throws {
+        let state = try await RawHTTP.request(
+            host: host, port: port, method: "GET", path: "/apps/\(app)", origin: origin(for: app)
+        )
+        let run = state.body.firstMatch(of: /<link[^>]*rel="run"[^>]*href="([^"]+)"/).map { String($0.output.1) } ?? "run"
+        let response = try await RawHTTP.request(
+            host: host, port: port, method: "DELETE", path: "/apps/\(app)/\(run)", origin: origin(for: app)
+        )
+        guard (200..<300).contains(response.status) else { throw TVError.http(response.status) }
+    }
+
     static func launch(app: String, on host: String, body: String? = nil) async throws {
         let response = try await RawHTTP.request(
             host: host, port: port, method: "POST", path: "/apps/\(app)", body: body,
@@ -268,6 +281,35 @@ enum SmartCenter {
     /// YouTube'un DIAL servisi, YouTube kaynaklı görünmeyen isteklere 403 döndürüyor.
     private static func origin(for app: String) -> String? {
         app == "YouTube" ? "https://www.youtube.com" : nil
+    }
+
+    /// TV'nin kendini tanıttığı ad ve üretici (UPnP aygıt tanımı: `DAEWOO_43DE54F 43" SMART TV`, `VESTEL`).
+    static func deviceInfo(_ host: String) async -> (name: String, manufacturer: String)? {
+        guard let response = try? await RawHTTP.request(host: host, port: 56790, method: "GET", path: "/dd.xml"),
+              response.status == 200 else { return nil }
+        func tag(_ name: String) -> String {
+            guard let regex = try? Regex("<\(name)>([^<]*)</\(name)>"),
+                  let match = response.body.firstMatch(of: regex),
+                  let value = match.output[1].substring else { return "" }
+            return String(value).trimmingCharacters(in: .whitespaces)
+        }
+        let info = (name: tag("friendlyName"), manufacturer: tag("manufacturer"))
+        return info.name.isEmpty && info.manufacturer.isEmpty ? nil : info
+    }
+
+    /// Panelde gösterilecek kısa ad: `DAEWOO_43DE54F 43" SMART TV` + `VESTEL` → "Daewoo 43DE54F · Vestel".
+    static func modelLabel(name: String, manufacturer: String) -> String {
+        var words = name.replacingOccurrences(of: "_", with: " ").split(separator: " ").map(String.init)
+        // Sondaki ekran boyu ve "SMART TV" atılır.
+        while let last = words.last, ["SMART", "TV"].contains(last.uppercased()) || last.hasSuffix("\"") || last.hasSuffix("”") {
+            words.removeLast()
+        }
+        // Tamamı büyük harfli marka adları ("DAEWOO") düzeltilir; model kodları ("43DE54F") olduğu gibi kalır.
+        let pretty = { (word: String) in word == word.uppercased() && word.allSatisfy(\.isLetter) ? word.capitalized : word }
+        let model = words.map(pretty).joined(separator: " ")
+        let maker = pretty(manufacturer)
+        if maker.isEmpty || model.localizedCaseInsensitiveContains(maker) { return model.isEmpty ? maker : model }
+        return model.isEmpty ? maker : "\(model) · \(maker)"
     }
 
     static func isOnline(_ host: String, timeout: TimeInterval = 2) async -> Bool {

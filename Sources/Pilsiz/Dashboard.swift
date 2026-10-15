@@ -15,6 +15,30 @@ struct PanoShortcut: Codable, Equatable, Identifiable {
     ]
 }
 
+/// Panonun hava durumu için şehir (Open-Meteo koordinatları ve saat dilimi).
+struct PanoCity: Codable, Equatable, Sendable {
+    var name: String
+    var latitude: Double
+    var longitude: Double
+    var timeZone: String
+
+    static let ankara = PanoCity(name: "Ankara", latitude: 39.93, longitude: 32.86, timeZone: "Europe/Istanbul")
+}
+
+/// Panodaki haberlerin RSS kaynağı.
+struct NewsSource: Hashable, Sendable {
+    let name: String
+    let url: URL
+
+    static let presets = [
+        NewsSource(name: "Gazete Oksijen", url: URL(string: "https://gazeteoksijen.com/export/rss")!),
+        NewsSource(name: "BBC Türkçe", url: URL(string: "https://feeds.bbci.co.uk/turkce/rss.xml")!),
+        NewsSource(name: "CNN Türk", url: URL(string: "https://www.cnnturk.com/feed/rss/all/news")!),
+        NewsSource(name: "Habertürk", url: URL(string: "https://www.haberturk.com/rss")!),
+        NewsSource(name: "TRT Haber", url: URL(string: "https://www.trthaber.com/manset_articles.rss")!),
+    ]
+}
+
 /// TV'de açılan pano: uygulamalar, YouTube kısayolları, haberler, hava ve piyasa.
 ///
 /// Sayfa `ShareServer`'dan sunulur ve "TV'de göster" ile aynı HbbTV ekranında açılır. Veriyi Mac toplar;
@@ -36,8 +60,27 @@ final class Dashboard {
         }
     }
 
-    nonisolated static let city = (name: "Ankara", latitude: 39.93, longitude: 32.86)
-    nonisolated static let newsFeed = URL(string: "https://gazeteoksijen.com/export/rss")!
+    /// Hava durumu şehri; Ayarlar › Pano'dan değişir.
+    var city: PanoCity {
+        didSet {
+            guard city != oldValue else { return }
+            defaults.set(try? JSONEncoder().encode(city), forKey: "panoCity")
+            fetched["weather"] = nil
+        }
+    }
+
+    /// Haber kaynağının RSS adresi; Ayarlar › Pano'dan değişir.
+    var newsFeed: URL {
+        didSet {
+            guard newsFeed != oldValue else { return }
+            defaults.set(newsFeed.absoluteString, forKey: "panoNewsFeed")
+            fetched["news"] = nil
+        }
+    }
+
+    var newsSourceName: String {
+        NewsSource.presets.first { $0.url == newsFeed }?.name ?? newsFeed.host()?.replacingOccurrences(of: "www.", with: "") ?? "Haber"
+    }
 
     private let defaults = UserDefaults.standard
     private var refreshTask: Task<Void, Never>?
@@ -52,6 +95,8 @@ final class Dashboard {
     init() {
         shortcuts = defaults.data(forKey: "panoShortcuts").flatMap { try? JSONDecoder().decode([PanoShortcut].self, from: $0) }
             ?? PanoShortcut.defaults
+        city = defaults.data(forKey: "panoCity").flatMap { try? JSONDecoder().decode(PanoCity.self, from: $0) } ?? .ankara
+        newsFeed = defaults.string(forKey: "panoNewsFeed").flatMap(URL.init(string:)) ?? NewsSource.presets[0].url
     }
 
     func isOpen(on share: ScreenShare) -> Bool {
@@ -161,8 +206,9 @@ final class Dashboard {
 
     func refresh(tv: TVController) async {
         let now = Date()
-        async let newNews = isStale("news", after: 600) ? Self.fetchNews() : nil
-        async let newWeather = isStale("weather", after: 1200) ? Self.fetchWeather() : nil
+        let (feed, source, city) = (newsFeed, newsSourceName, city)
+        async let newNews = isStale("news", after: 600) ? Self.fetchNews(from: feed, source: source) : nil
+        async let newWeather = isStale("weather", after: 1200) ? Self.fetchWeather(for: city) : nil
         async let newMarket = isStale("market", after: 300) ? Self.fetchMarket() : nil
         let links = shortcuts.map(\.link)
         async let newShortcuts = isStale("shortcuts", after: 1800) ? Self.resolve(links) : nil
@@ -183,7 +229,7 @@ final class Dashboard {
     private func publish(tv: TVController) {
         var images: [String: Data] = [:]
         var root: [String: Any] = [
-            "city": Self.city.name,
+            "city": city.name,
             "tz": TimeZone.current.secondsFromGMT() / 60,
             "news": news.map { ["cat": $0.category, "time": Int($0.date.timeIntervalSince1970 * 1000), "title": $0.title, "sum": $0.summary] },
             "market": market.map { ["name": $0.name, "unit": $0.unit, "value": $0.value, "change": $0.change, "up": $0.up, "points": $0.points] },
@@ -277,7 +323,7 @@ final class Dashboard {
         return data
     }
 
-    // MARK: Haberler (Gazete Oksijen RSS)
+    // MARK: Haberler (RSS)
 
     private nonisolated static let categories = [
         "turkiye": "Türkiye", "dunya": "Dünya", "ekonomi": "Ekonomi", "spor": "Spor", "teknoloji": "Teknoloji",
@@ -285,20 +331,27 @@ final class Dashboard {
         "yazarlar": "Yazarlar", "egitim": "Eğitim", "cevre": "Çevre", "magazin": "Magazin", "otomobil": "Otomobil",
     ]
 
-    nonisolated static func fetchNews() async -> [News]? {
-        guard let data = await get(newsFeed) else { return nil }
+    /// RSS beslemesindeki ilk 12 haber. Kategori, haber adresinin ilk iki parçasından tanınırsa yazılır
+    /// (gazeteoksijen.com/dunya/…, trthaber.com/haber/turkiye/…); tanınmazsa kaynağın adı kullanılır.
+    nonisolated static func fetchNews(from feed: URL, source: String) async -> [News]? {
+        guard let data = await get(feed) else { return nil }
         let text = String(decoding: data, as: UTF8.self)
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss Z"
+        let date = { (value: String) -> Date? in
+            for format in ["EEE, dd MMM yyyy HH:mm:ss Z", "EEE, dd MMM yyyy HH:mm:ss zzz"] {
+                formatter.dateFormat = format
+                if let date = formatter.date(from: value) { return date }
+            }
+            return nil
+        }
         let items = text.matches(of: /<item>(.*?)<\/item>/.dotMatchesNewlines()).prefix(12).compactMap { match -> News? in
             let item = String(match.output.1)
             guard let title = field("title", in: item), !title.isEmpty else { return nil }
-            // Kategori haber adresinin ilk parçasıdır: gazeteoksijen.com/dunya/…
-            let slug = field("link", in: item).flatMap { URL(string: $0)?.pathComponents.dropFirst().first } ?? ""
-            let category = categories[slug] ?? (slug.isEmpty ? "Haber" : slug.replacingOccurrences(of: "-", with: " ").capitalized(with: Locale(identifier: "tr_TR")))
-            return News(category: category, date: field("pubDate", in: item).flatMap(formatter.date(from:)) ?? Date(),
-                        title: title, summary: field("h4", in: item) ?? "")
+            let path = (field("link", in: item) ?? field("guid", in: item)).flatMap { URL(string: $0)?.pathComponents.dropFirst() } ?? []
+            let category = path.prefix(2).lazy.compactMap { categories[$0] }.first ?? source
+            let summary = field("h4", in: item) ?? field("description", in: item).map { String($0.prefix(240)) } ?? ""
+            return News(category: category, date: field("pubDate", in: item).flatMap(date) ?? Date(), title: title, summary: summary)
         }
         return items.isEmpty ? nil : Array(items)
     }
@@ -307,7 +360,9 @@ final class Dashboard {
     private nonisolated static func field(_ name: String, in text: String) -> String? {
         guard let regex = try? Regex("<\(name)>(.*?)</\(name)>").dotMatchesNewlines(),
               let match = text.firstMatch(of: regex), let raw = match.output[1].substring else { return nil }
-        var value = String(raw).replacing(/<[^>]+>/, with: " ")
+        // CDATA içi düz metin sayılır; yoksa etiket temizliği bütün içeriği silerdi.
+        var value = String(raw).replacing(/<!\[CDATA\[(.*?)\]\]>/.dotMatchesNewlines()) { String($0.output.1) }
+        value = value.replacing(/<[^>]+>/, with: " ")
         for (entity, character) in ["&amp;": "&", "&quot;": "\"", "&apos;": "'", "&lt;": "<", "&gt;": ">", "&nbsp;": " "] {
             value = value.replacingOccurrences(of: entity, with: character)
         }
@@ -319,7 +374,7 @@ final class Dashboard {
 
     // MARK: Hava (Open-Meteo)
 
-    nonisolated static func fetchWeather() async -> Weather? {
+    nonisolated static func fetchWeather(for city: PanoCity) async -> Weather? {
         struct Response: Decodable {
             struct Current: Decodable { let temperature_2m: Double; let apparent_temperature: Double; let weather_code: Int; let is_day: Int }
             struct Hourly: Decodable { let time: [String]; let temperature_2m: [Double]; let weather_code: [Int]; let is_day: [Int] }
@@ -334,13 +389,13 @@ final class Dashboard {
             .init(name: "current", value: "temperature_2m,apparent_temperature,weather_code,is_day"),
             .init(name: "hourly", value: "temperature_2m,weather_code,is_day"),
             .init(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min"),
-            .init(name: "timezone", value: "Europe/Istanbul"), .init(name: "forecast_days", value: "4"),
+            .init(name: "timezone", value: city.timeZone), .init(name: "forecast_days", value: "4"),
         ]
         guard let data = await get(components.url!), let response = try? JSONDecoder().decode(Response.self, from: data) else { return nil }
 
         let stamp = DateFormatter()
         stamp.locale = Locale(identifier: "en_US_POSIX")
-        stamp.timeZone = TimeZone(identifier: "Europe/Istanbul")
+        stamp.timeZone = TimeZone(identifier: city.timeZone)
         stamp.dateFormat = "yyyy-MM-dd'T'HH:mm"
         // Önümüzdeki saatten başlayarak üçer saat arayla beş dilim.
         let hourly = response.hourly
@@ -363,6 +418,20 @@ final class Dashboard {
         let now = describe(response.current.weather_code, day: response.current.is_day == 1)
         return Weather(temperature: Int(response.current.temperature_2m.rounded()), feelsLike: Int(response.current.apparent_temperature.rounded()),
                        text: now.text, icon: now.icon, hours: hours, days: Array(days))
+    }
+
+    /// Şehir adından koordinat ve saat dilimi (Open-Meteo geocoding).
+    nonisolated static func findCity(_ query: String) async -> PanoCity? {
+        struct Response: Decodable {
+            struct Place: Decodable { let name: String; let latitude: Double; let longitude: Double; let timezone: String? }
+            let results: [Place]?
+        }
+        var components = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/search")!
+        components.queryItems = [.init(name: "name", value: query), .init(name: "count", value: "1"), .init(name: "language", value: "tr")]
+        guard let data = await get(components.url!),
+              let place = (try? JSONDecoder().decode(Response.self, from: data))?.results?.first else { return nil }
+        return PanoCity(name: place.name, latitude: place.latitude, longitude: place.longitude,
+                        timeZone: place.timezone ?? TimeZone.current.identifier)
     }
 
     /// WMO hava kodu → Türkçe ad ve sayfadaki simge.

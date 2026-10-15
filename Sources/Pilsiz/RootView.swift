@@ -186,7 +186,7 @@ struct RootView: View {
             .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 1) {
                 Text(tv.name).font(.system(size: 14, weight: .semibold))
-                Text("Daewoo 43DE54F · Vestel").font(.system(size: 10.5)).foregroundStyle(.secondary)
+                Text(tv.model.isEmpty ? "Vestel SmartCenter TV" : tv.model).font(.system(size: 10.5)).foregroundStyle(.secondary)
             }
             Spacer()
             Button {

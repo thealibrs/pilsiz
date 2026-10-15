@@ -29,7 +29,21 @@ Bulut yok, hesap yok: Mac ile TV yerel ağda doğrudan konuşur.
 
 Fiziksel kumanda kırılınca TV'yi telefondaki *TV Smart Centre* uygulamasıyla yönetmek zorunda kalmıştım. Bu proje, aynı kontrolü Mac'e taşıyor. Hiçbir buluta bağlanmıyor; Mac ile TV, yerel ağ üzerinden doğrudan konuşuyor. Adı da buradan: pili hiç bitmeyen bir kumanda.
 
-Test edilen tek cihaz: **Daewoo 43DE54F** (anakart: Vestel **17MB181TC**). Vestel'in SmartCenter altyapısını kullanan diğer TV'lerde de (Vestel, Toshiba, Hitachi, Telefunken, JVC, Finlux…) çalışması beklenir, ama denenmedi. Başka bir modelde denersen sonucu bir [issue](https://github.com/thealibrs/pilsiz/issues) ile paylaşman çok işe yarar.
+Vestel'in SmartCenter altyapısını kullanan TV'ler için yazıldı; ayrıntılar [Hangi TV'lerde çalışır?](#hangi-tvlerde-çalışır) bölümünde.
+
+## Hangi TV'lerde çalışır?
+
+Pilsiz, Vestel'in **SmartCenter** altyapısını kullanan akıllı TV'lerle konuşur. Bu altyapı Vestel'in ürettiği birçok markada var: Vestel, Regal, Toshiba, Hitachi, Telefunken, JVC, Finlux, Daewoo… Telefondaki *Smart Center* uygulaması TV'ni görebiliyorsa Pilsiz de büyük ihtimalle görür.
+
+| | |
+|---|---|
+| ✅ **Her SmartCenter TV'de beklenen** | TV'yi ağda bulma, kumanda tuşları, ses, kanal listesini TV'den alma, Netflix / Prime Video / YouTube açma, YouTube linki oynatma, klavye ve imleç, Wake-on-LAN |
+| 🔎 **Modele göre değişebilir** | TV'de göster ve Pano (TV'nin HbbTV tarayıcısı ve 12345 portu), giriş seçimi (kaynak menüsünün sırası), imlecin hangi ekranlarda göründüğü |
+| 🇹🇷 **Türkiye'ye özel** | Yayın akışı (Türksat kanalları), kanal logoları, arayüzün ve sesli komutların dili. Başka bir ülkede kanal değiştirme çalışır; program bilgisi ve logolar boş kalır |
+
+Pilsiz belirli bir TV varsaymaz: kanal listesi, model adı ve MAC adresi TV'nin kendisinden okunur. TV adı, giriş sırası, panonun şehri ve haber kaynağı Ayarlar'dan değişir.
+
+Doğrulanan tek model **Daewoo 43DE54F** (anakart Vestel **17MB181TC**, yazılım 2.85.2.0). Başka bir modelde denersen model adını, neyin çalışıp neyin çalışmadığını bir [issue](https://github.com/thealibrs/pilsiz/issues) ile paylaşman çok işe yarar.
 
 ## 📺 Pano
 
@@ -64,7 +78,7 @@ Pano, TV'de tam ekran açılan kişisel bir ana ekran. *TV'de göster* sekmesind
 - **Trackpad:** *TV'de göster* sekmesindeki dokunmatik alanda iki parmakla kaydır; odak parmaklarının gittiği yöne gider. İki parmakla dokunmak ya da tıklamak seçer.
 - **Kumanda sekmesi:** ekrandaki yön tuşları.
 
-Veriyi Mac toplar; TV'nin tarayıcısı internete çıkmaz. Kaynaklar: haber için [Gazete Oksijen](https://gazeteoksijen.com) RSS'i, hava için [Open-Meteo](https://open-meteo.com), piyasa için Yahoo Finance. Şehir (Ankara) ve haber kaynağı şimdilik kodda sabit; değiştirmek için [`Dashboard.swift`](Sources/Pilsiz/Dashboard.swift) içindeki `city` ve `newsFeed` satırlarını düzenle. YouTube kısayolları panelden değiştirilir.
+Veriyi Mac toplar; TV'nin tarayıcısı internete çıkmaz. Kaynaklar: haber için seçilen RSS beslemesi (Gazete Oksijen, BBC Türkçe, CNN Türk, Habertürk, TRT Haber ya da istediğin bir RSS adresi), hava için [Open-Meteo](https://open-meteo.com), piyasa için Yahoo Finance. Şehir ve haber kaynağı *Ayarlar › Pano*'dan, YouTube kısayolları *TV'de göster* sekmesinden değişir.
 
 ## 🎙 Pilsiz'e söyle
 
@@ -88,8 +102,8 @@ Türkçe konuş ya da yaz; Pilsiz anlayıp TV'de yapar. **⌃⌥⌘ Space**'i ba
 | 🖥 **Ekranda** | TV'de o an ne açık: kanal logosu, **yayındaki program**, ilerlemesi ve sıradaki program; ya da Netflix/Prime Video/YouTube. Ses, favori kanallar, uygulamalar, girişler |
 | 🎮 **Kumanda** | TV'nin kendi kumandasına benzeyen, kaydırmasız gövde: yön tuşları + OK, ana ekran, geri, menü, çıkış, medya tuşları, kanal ±, rakamlar, renkli tuşlar. Basılı tutunca tekrarlar |
 | 📺 **TV'de göster** | [Pano](#-pano)yu aç, Mac ekranını TV'ye yansıt (tam HD, saniyede ~15 kare), fotoğrafları slayt olarak göster, video oynat. AirPlay olmadan, HbbTV ile |
-| 📋 **Kanallar** | Logolu kanal listesi; her kanalın altında o an yayındaki program. Tıkla, TV o kanala geçsin. Arama, favoriler (★), düzenleme ve kanal tarama sihirbazı |
-| 🔲 **Uygulamalar** | Netflix, Prime Video ve YouTube'u tek tıkla aç. Hangisinin açık olduğu izlenir |
+| 📋 **Kanallar** | Liste ya da logo ızgarası. Listede o an yayındaki program, kalan süre ve ilerleme; ekrandaki kanal en üstte sabit. Favoriler, sık izlenenler, kanal/numara/program araması, düzenleme ve kanal tarama sihirbazı |
+| 🔲 **Uygulamalar** | Netflix, Prime Video ve YouTube'u tek tıkla aç; bugünkü kullanım süreleri kartlarda. Açık uygulamayı tek tıkla kapatıp canlı yayına dön |
 | 📊 **Aktivite** | TV'nin açık kaldığı süre, en çok izlenen kanallar, uygulama süreleri (bugün / 7 gün / 30 gün) |
 | ⚙️ **Ayarlar** | TV menü kısayolları, IP/MAC, giriş sırası, oturum açılışında başlatma, ham tuş kodu deneme |
 
@@ -114,7 +128,7 @@ Ayrıca:
 
 - 🔍 **Otomatik keşif:** TV'yi yerel ağda kendisi bulur, MAC adresini öğrenir.
 - 🔊 **Sürüklenebilir ses çubuğu:** TV ses seviyesini ağdan bildirmediği için seviye uygulamada takip edilir. Çubuk, aradaki fark kadar +/− basışı gönderir.
-- ⚡ **Wake-on-LAN:** TV kapalıyken güç tuşu ağdan uyandırma paketi gönderir.
+- ⚡ **Wake-on-LAN:** TV kapalıyken güç tuşu ağdan uyandırma paketi gönderir. Kapalıyken bir kanala ya da uygulamaya basarsan TV önce uyanır, sonra o kanal ya da uygulama açılır.
 - ⌨️ **Panel kısayolları** (Ekranda ve Kumanda sekmelerinde; pano açıkken yön, OK ve geri her sekmede çalışır):
 
   | Tuş | İşlev | Tuş | İşlev |
@@ -164,7 +178,8 @@ cd pilsiz
 
 1. macOS **"yerel ağdaki aygıtları bulma"** izni ister → **İzin Ver**. (Sonradan: *Sistem Ayarları › Gizlilik ve Güvenlik › Yerel Ağ*)
 2. Uygulama TV'yi ağda arar ve bulur. Bulamazsa *Ayarlar › Bağlantı*'dan IP adresini elle gir.
-3. TV kapalıyken de açabilmek için TV'de **Ayarlar › Ağ › Ağda Uyandırma** seçeneğini aç.
+3. TV açıksa kanal listesi TV'den kendiliğinden alınır. Sonradan almak için: *Kanallar › … › Kanal listesini TV'den eşitle*.
+4. TV kapalıyken de açabilmek için TV'de **Ayarlar › Ağ › Ağ Tabanlı Bekleme Modu** seçeneğini aç (bazı modellerde adı *Ağda Uyandırma* ya da *Wake On LAN*).
 
 Özelliğe göre istenen öbür izinler: ekran yansıtma için *Ekran ve Sistem Sesi Kaydı*, "Pilsiz'e söyle" için *Mikrofon* ve *Konuşma Tanıma*, hatırlatıcılar için *Bildirimler*.
 
@@ -320,8 +335,9 @@ Sources/Pilsiz/
 ├── Stores.swift         # Kanal listesi ve aktivite verisi (UserDefaults)
 ├── RemoteKey.swift      # Tuş kodları
 ├── RootView.swift       # Başlık, sekme çubuğu, klavye kısayolları
-├── Tabs.swift           # Ekranda, Kumanda, Uygulamalar, Aktivite
-├── ChannelsTab.swift    # Kanal listesi, düzenleyici, tarama sihirbazı
+├── Tabs.swift           # Ekranda, Aktivite
+├── AppsTab.swift        # Uygulamalar sekmesi
+├── ChannelsTab.swift    # Kanal listesi ve ızgarası, düzenleyici, tarama sihirbazı
 ├── SettingsTab.swift    # Ayarlar
 ├── ChannelLogo.swift    # Logo eşleştirme ve yedek rozet
 ├── EPG.swift            # Yayın akışı: indirme, önbellek, XMLTV ayrıştırma, ad eşleştirme
@@ -386,7 +402,7 @@ Hata bildirimi, başka TV modellerinden deneme sonuçları ve değişiklik öner
 - [node-red-contrib-vestel-tv](https://github.com/hyttysmyrkky/node-red-contrib-vestel-tv): genişletilmiş tuş haritası
 - [shkspr.mobi](https://shkspr.mobi/blog/2018/11/telnet-control-of-toshiba-smart-tvs/): Toshiba/Vestel tuş kodları
 - Yayın akışı: [epgshare01](https://epgshare01.online/epgshare01/) ve [trology85/iptv-epg-turkey](https://github.com/trology85/iptv-epg-turkey)
-- Pano verisi: [Gazete Oksijen](https://gazeteoksijen.com) (haber), [Open-Meteo](https://open-meteo.com) (hava), Yahoo Finance (piyasa)
+- Pano verisi: seçilen haber sitesinin RSS'i (varsayılan [Gazete Oksijen](https://gazeteoksijen.com)), [Open-Meteo](https://open-meteo.com) (hava ve şehir arama), Yahoo Finance (piyasa)
 - Pano fontları: [Figtree](https://github.com/erikdkennedy/figtree) ve [Bricolage Grotesque](https://github.com/ateliertriay/bricolage), SIL Open Font License 1.1 ile (lisans metinleri `Resources/Fonts` içinde)
 - Kanal logoları: [tv-logo/tv-logos](https://github.com/tv-logo/tv-logos)
 - "Ekranda" sekmesindeki TV görseli Higgsfield (GPT Image 2.5) ile üretildi

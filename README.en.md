@@ -109,7 +109,7 @@ Speak or type in Turkish; Pilsiz understands and does it on the TV. Hold **⌃�
 
 | | |
 |---|---|
-| 🖥 **Ekranda** (On Screen) | What is on the TV right now: channel logo, **the programme on air**, its progress and what is next; or Netflix/Prime Video/YouTube. Volume, favourite channels, apps, inputs |
+| 🖥 **Ekranda** (On Screen) | What is on the TV right now: channel logo, **the programme on air**, its progress and what is next; or Netflix/Prime Video/YouTube. If you changed the channel on the TV or the phone, fix it with **Değiştir** (Change). Volume, favourite channels, apps, inputs |
 | 🎮 **Kumanda** (Remote) | A body that looks like the TV's own remote and needs no scrolling: direction keys + OK, home, back, menu, exit, media keys, channel ±, digits, colour keys. Keys repeat while held |
 | 📺 **TV'de göster** (Show on TV) | Open the [dashboard](#-dashboard), mirror the Mac screen to the TV (full HD, ~15 frames per second), show photos as a slideshow, play a video. Without AirPlay, using HbbTV |
 | 📋 **Kanallar** (Channels) | A list or a logo grid. The list shows the programme on air, time left and progress; the channel on screen stays pinned at the top. Favourites, most watched, search by channel, number or programme, editing and a channel scan wizard |
@@ -120,7 +120,7 @@ Speak or type in Turkish; Pilsiz understands and does it on the TV. Hold **⌃�
 Also:
 
 - 🔔 **Programme reminders:** Set a reminder from the calendar button in the channel list or the bell on the "up next" row. The **Kanala geç** (Switch to channel) button in the notification that arrives 5 minutes before the start turns the TV on first if it is off, then switches to the channel.
-- ▶️ **Open a YouTube link on the TV:** Paste the link into the card in the Apps tab, drag it onto the panel, or paste it into ⌘K; the video (with its timestamp and playlist, if any) starts in YouTube on the TV. A link on the clipboard is suggested automatically.
+- ▶️ **Open a YouTube link on the TV:** Just copy the link: the card in the Apps tab picks it up by itself and shows the video's thumbnail and title. Dragging it onto the panel or pasting it into ⌘K works too; the video (with its timestamp and playlist, if any) starts in YouTube on the TV.
 - 📡 **Channel list from the TV:** The ⟳ button in the Channels tab (and once a day automatically) adds every channel on the TV (except radio) to the list; names you edited and your favourites are kept.
 - 🔎 **Quick search (⌘K):** Search by channel name, number or **the name of the programme on air**; choose with ↑↓, switch with ↩.
 - 🧷 **Channel in the menu bar:** Next to the icon, the logo of the current channel, optionally with the name of the programme on air (chosen in Settings). Channels without a logo and running apps show a name instead.
@@ -387,11 +387,11 @@ The dashboard screenshots are taken from a browser with a 1280×720 window while
 - [x] Text entry from the keyboard, touchpad/pointer (protocol decoded; not in the interface at the moment)
 - [x] Show the Mac screen, photos and videos on the TV (HbbTV)
 - [x] A dashboard on the TV; navigation with the keyboard and the trackpad
-- [ ] Choose the dashboard city and news source in settings (fixed in code for now)
+- [x] Choose the dashboard city and news source in settings
 - [ ] Verification on other Vestel-based models (tested only on the Daewoo 43DE54F)
 - [ ] Open apps other than Netflix, Prime Video and YouTube directly: this TV's DIAL service knows no other app, the rest are reachable only through the TV's own app screen
 - [ ] **Read** the volume from the TV: the phone app only sends +/− too; no read was found in the protocol
-- [ ] Read the current channel from the TV (to know about a channel changed from the phone)
+- [ ] Read the current channel from the TV (to know about a channel changed from the phone). Not found in the protocol, and binding the TV page to the broadcast closes the dashboard. For now it is corrected by hand with Ekranda › **Değiştir** (Change)
 - [ ] Picture settings such as brightness and contrast
 - [ ] Select inputs directly (for now the source menu is opened and the position number is sent)
 

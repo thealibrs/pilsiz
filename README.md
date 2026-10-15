@@ -107,7 +107,7 @@ Türkçe konuş ya da yaz; Pilsiz anlayıp TV'de yapar. **⌃⌥⌘ Space**'i ba
 
 | | |
 |---|---|
-| 🖥 **Ekranda** | TV'de o an ne açık: kanal logosu, **yayındaki program**, ilerlemesi ve sıradaki program; ya da Netflix/Prime Video/YouTube. Ses, favori kanallar, uygulamalar, girişler |
+| 🖥 **Ekranda** | TV'de o an ne açık: kanal logosu, **yayındaki program**, ilerlemesi ve sıradaki program; ya da Netflix/Prime Video/YouTube. Kanalı TV'den ya da telefondan değiştirdiysen **Değiştir** ile düzelt. Ses, favori kanallar, uygulamalar, girişler |
 | 🎮 **Kumanda** | TV'nin kendi kumandasına benzeyen, kaydırmasız gövde: yön tuşları + OK, ana ekran, geri, menü, çıkış, medya tuşları, kanal ±, rakamlar, renkli tuşlar. Basılı tutunca tekrarlar |
 | 📺 **TV'de göster** | [Pano](#-pano)yu aç, Mac ekranını TV'ye yansıt (tam HD, saniyede ~15 kare), fotoğrafları slayt olarak göster, video oynat. AirPlay olmadan, HbbTV ile |
 | 📋 **Kanallar** | Liste ya da logo ızgarası. Listede o an yayındaki program, kalan süre ve ilerleme; ekrandaki kanal en üstte sabit. Favoriler, sık izlenenler, kanal/numara/program araması, düzenleme ve kanal tarama sihirbazı |
@@ -118,7 +118,7 @@ Türkçe konuş ya da yaz; Pilsiz anlayıp TV'de yapar. **⌃⌥⌘ Space**'i ba
 Ayrıca:
 
 - 🔔 **Program hatırlatıcı:** Kanallar listesindeki takvim düğmesinden ya da "Sırada" satırındaki zilden bir programa hatırlatıcı kur. Başlamadan 5 dk önce gelen bildirimdeki **Kanala geç** düğmesi, TV kapalıysa önce açar, sonra o kanala geçer.
-- ▶️ **YouTube linkini TV'de aç:** Linki Uygulamalar sekmesindeki karta yapıştır, panele sürükle-bırak ya da ⌘K'ya yapıştır; video (varsa zaman damgası ve oynatma listesiyle) TV'deki YouTube'da başlar. Panodaki link kendiliğinden önerilir.
+- ▶️ **YouTube linkini TV'de aç:** Linki kopyalaman yeter: Uygulamalar sekmesindeki kart onu kendiliğinden alır, videonun görselini ve başlığını gösterir. Panele sürükle-bırak ya da ⌘K'ya yapıştır da olur; video (varsa zaman damgası ve oynatma listesiyle) TV'deki YouTube'da başlar.
 - 📡 **Kanal listesi TV'den:** Kanallar sekmesindeki ⟳ düğmesiyle (ve günde bir kendiliğinden) TV'deki tüm kanallar (radyolar hariç) listeye eklenir; düzenlediğin adlar ve favoriler korunur.
 - 🔎 **Hızlı arama (⌘K):** Kanal adı, numarası ya da **yayındaki program adıyla** ara ("kuruluş" yazınca dizinin olduğu kanal çıkar); ↑↓ ile seç, ↩ ile geç.
 - 🧷 **Menü çubuğunda kanal:** Simgenin yanında o an açık kanalın logosu, istersen yayındaki programın adıyla birlikte görünür (Ayarlar'dan seçilir). Logosu olmayan kanallarda ve açık uygulamalarda ad yazar.
@@ -385,11 +385,11 @@ Pano görüntüleri, yerel pano sunucusu (`PILSIZ_PANO=1`) açıkken tarayıcıd
 - [x] Klavye ile metin girişi, touchpad/imleç (protokol çözüldü; arayüzde şu an yok)
 - [x] Mac ekranını, fotoğrafları ve videoları TV'de göstermek (HbbTV)
 - [x] TV'de açılan pano; klavye ve trackpad ile gezinme
-- [ ] Pano şehrini ve haber kaynağını ayarlardan seçmek (şu an kodda sabit)
+- [x] Pano şehrini ve haber kaynağını ayarlardan seçmek
 - [ ] Başka Vestel tabanlı modellerde doğrulama (yalnızca Daewoo 43DE54F'de denendi)
 - [ ] Netflix, Prime Video ve YouTube dışındaki uygulamaları doğrudan açmak: bu TV'nin DIAL servisi başka uygulama tanımıyor, öbürlerine yalnızca TV'nin uygulama ekranından ulaşılıyor
 - [ ] Ses seviyesini TV'den **okumak**: telefon uygulaması da yalnızca +/− gönderiyor; protokolde okuma bulunmadı
-- [ ] Şu anki kanalı TV'den okumak (telefondan değiştirilen kanalı bilmek)
+- [ ] Şu anki kanalı TV'den okumak (telefondan değiştirilen kanalı bilmek). Protokolde bulunamadı; TV'deki sayfanın yayına bağlanması da panoyu kapatıyor. Şimdilik Ekranda › **Değiştir** ile elle düzeltiliyor
 - [ ] Parlaklık, kontrast gibi görüntü ayarları
 - [ ] Girişleri doğrudan seçmek (şu an kaynak menüsü açılıp sıra numarası gönderiliyor)
 

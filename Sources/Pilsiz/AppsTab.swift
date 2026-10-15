@@ -365,6 +365,7 @@ struct YouTubeCard: View {
     @Environment(TVController.self) private var tv
     @State private var link = ""
     @State private var info: YouTubeInfo?
+    @State private var thumbnail: NSImage?
     @State private var fromClipboard = false
     /// Panonun en son bakılan sürümü; aynı kopyalama iki kez yapıştırılmaz.
     @State private var seenPasteboard = -1
@@ -419,7 +420,12 @@ struct YouTubeCard: View {
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Theme.cardStroke))
         .task(id: video?.id) {
             info = nil
-            if let video { info = await YouTubeCaster.info(for: video) }
+            thumbnail = nil
+            guard let video else { return }
+            info = await YouTubeCaster.info(for: video)
+            if let url = info?.thumbnail, let (data, _) = try? await URLSession.shared.data(from: url) {
+                thumbnail = NSImage(data: data)
+            }
         }
         .task {
             // Sekme açıkken yeni kopyalanan YouTube linki de kendiliğinden gelir.
@@ -432,11 +438,8 @@ struct YouTubeCard: View {
 
     private func preview(_ video: YouTubeVideo) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            AsyncImage(url: info?.thumbnail) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Theme.key
-            }
+            Theme.key
+                .overlay { if let thumbnail { Image(nsImage: thumbnail).resizable().scaledToFill() } }
             .frame(width: 104, height: 58)
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {

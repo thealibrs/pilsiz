@@ -151,6 +151,8 @@ enum Snapshot {
                 window.contentView = host
                 window.orderFrontRegardless()
                 try? await Task.sleep(for: .milliseconds(700))
+                // YouTube kartı video adını ve küçük resmini ağdan alıyor.
+                if tab == .apps { try? await Task.sleep(for: .seconds(3)) }
                 tv.debugForceOnline()
                 window.setContentSize(host.fittingSize)
                 host.layoutSubtreeIfNeeded()
